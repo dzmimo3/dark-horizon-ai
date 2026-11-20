@@ -193,19 +193,22 @@ function sendMessage(){
   var waitBox = addBubble("AI", "⚡ جاري التنفيذ...", {});
   var fd = new FormData(); if(sid) fd.append("sid", sid); fd.append("q", txt); if(file) fd.append("file", file);
   qEl.value = ""; fEl.value = ""; document.getElementById("fileBar").style.display = "none";
-  fetch("/send_all", {method: "POST", body: fd}).then(function(r){ return r.json(); }).then(function(d){
-    sid = d.sid; localStorage.setItem("dh_sid", sid);
-    if(d.job_id){
-      waitBox.textContent = "🎬 جاري إخراج المشاهد والمونتاج السينمائي (يرجى الانتظار 20-40 ثانية)...";
-      var iv = setInterval(function(){
-        fetch("/job/" + d.job_id).then(function(r2){ return r2.json(); }).then(function(st){
-          if(st.done){ clearInterval(iv); waitBox.remove(); addBubble("AI", st.reply, st.media); loadSessions(); }
-        });
-      }, 3000);
-    } else {
-      waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions();
-    }
-  }).catch(function(err){ waitBox.textContent = "⚠️ تعذر الاتصال: " + err.message; });
+  fetch("/send_all", {method: "POST", body: fd})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      sid = d.sid; localStorage.setItem("dh_sid", sid);
+      if(d.job_id){
+        waitBox.textContent = "🎬 جاري إخراج الفيديو والمونتاج (انتظر 25 ثانية)...";
+        var iv = setInterval(function(){
+          fetch("/job/" + d.job_id).then(function(r2){ return r2.json(); }).then(function(st){
+            if(st.done){ clearInterval(iv); waitBox.remove(); addBubble("AI", st.reply, st.media); loadSessions(); }
+          });
+        }, 3000);
+      } else {
+        waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions();
+      }
+    })
+    .catch(function(err){ waitBox.textContent = "⚠️ تعذر الاتصال: " + err.message; });
 }
 document.addEventListener("DOMContentLoaded", function(){
   document.getElementById("histBtn").addEventListener("click", function(){ var dr = document.getElementById("drawer"); dr.style.display = (dr.style.display === "block") ? "none" : "block"; loadSessions(); });
