@@ -54,10 +54,19 @@ def stream_llm(messages):
     # 2. Groq Cloud الرسمي المجاني (Llama 3.3 70B)
     if not ans and groq_key:
         try:
-            r = requests.post("https://groq.com", headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}, json={"model": "llama-3.3-70b-versatile", "messages": messages}, timeout=12).json()
-            ch = r.get("choices", ())
-            if ch: ans = ch.__getitem__(0).get("message", {}).get("content", "").strip()
-        except Exception: pass
+            gr_res = requests.post(
+                "https://groq.com",
+                headers={"Authorization": f"Bearer {groq_key.strip()}", "Content-Type": "application/json"},
+                json={"model": "llama-3.3-70b-versatile", "messages": messages},
+                timeout=15
+            )
+            if gr_res.status_code == 200:
+                ch = gr_res.json().get("choices", ())
+                if ch: ans = ch.__getitem__(0).get("message", {}).get("content", "").strip()
+            else:
+                ans = f"⚠️ تنبيه Groq ({gr_res.status_code}): تأكد من صلاحية التوكن في Render."
+        except Exception as ge:
+            ans = f"⚠️ خطأ اتصال Groq: {str(ge)[:60]}"
 
     # 3. نقطة Pollinations النصية المباشرة مع تمرير سياق المحادثة
     if not ans:
