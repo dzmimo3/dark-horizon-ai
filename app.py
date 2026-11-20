@@ -232,7 +232,23 @@ def send_all():
     hist = list(reversed(rows))
     ctx = "\n".join([f"{r[0]}: {r[1][:250]}" for r in hist])
     if up_path and os.path.exists(up_path):
-        rep = ask_groq_sync([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف."
+        import base64
+        ext = os.path.splitext(up_path)[1].lower()
+        if ext in (".jpg", ".jpeg", ".png", ".webp"):
+            b64 = base64.b64encode(open(up_path, "rb").read()).decode("utf-8")
+            vis_msg = [{"role": "user", "content": [{"type": "text", "text": q or "صف هذه الصورة بالتفصيل بالعربية."}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}]
+            url_g = "https://" + "://groq.com"
+            rep = ""
+            for k in get_keys("GROQ_API_KEY"):
+                try:
+                    rv = requests.post(url_g, headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"}, json={"model": "meta-llama/llama-4-scout-17b-16e-instruct", "messages": vis_msg}, timeout=20)
+                    if rv.status_code == 200:
+                        rep = rv.json()["choices"][0]["message"]["content"].strip()
+                        break
+                except Exception: continue
+            if not rep: rep = "تم استلام الصورة بنجاح."
+        else:
+            rep = ask_groq_sync([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف."
         m_obj = {}
     elif any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية")):
         rep, m_obj = generate_media(q, ctx)
