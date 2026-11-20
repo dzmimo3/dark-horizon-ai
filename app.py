@@ -111,7 +111,7 @@ def generate_media(q, hist_ctx):
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
         has_aud = os.path.exists(aud_p) and os.path.getsize(aud_p) > 1500
-        num_sc = max(2, min(6, int(req_dur // 5)))
+        num_sc = 2
         with ThreadPoolExecutor(max_workers=3) as ex:
             fns = list(ex.map(build_image, [f"{en_p}, cinematic shot part {i+1}" for i in range(num_sc)]))
         sc_dur = req_dur / len(fns)
@@ -193,7 +193,19 @@ function sendMessage(){
   var waitBox = addBubble("AI", "⚡ جاري التنفيذ...", {});
   var fd = new FormData(); if(sid) fd.append("sid", sid); fd.append("q", txt); if(file) fd.append("file", file);
   qEl.value = ""; fEl.value = ""; document.getElementById("fileBar").style.display = "none";
-  fetch("/send_all", {method: "POST", body: fd}).then(function(r){ return r.json(); }).then(function(d){ sid = d.sid; localStorage.setItem("dh_sid", sid); waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions(); }).catch(function(err){ waitBox.textContent = "⚠️ تعذر الاتصال: " + err.message; });
+  fetch("/send_all", {method: "POST", body: fd}).then(function(r){ return r.json(); }).then(function(d){
+    sid = d.sid; localStorage.setItem("dh_sid", sid);
+    if(d.job_id){
+      waitBox.textContent = "🎬 جاري إخراج المشاهد والمونتاج السينمائي (يرجى الانتظار 20-40 ثانية)...";
+      var iv = setInterval(function(){
+        fetch("/job/" + d.job_id).then(function(r2){ return r2.json(); }).then(function(st){
+          if(st.done){ clearInterval(iv); waitBox.remove(); addBubble("AI", st.reply, st.media); loadSessions(); }
+        });
+      }, 3000);
+    } else {
+      waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions();
+    }
+  }).catch(function(err){ waitBox.textContent = "⚠️ تعذر الاتصال: " + err.message; });
 }
 document.addEventListener("DOMContentLoaded", function(){
   document.getElementById("histBtn").addEventListener("click", function(){ var dr = document.getElementById("drawer"); dr.style.display = (dr.style.display === "block") ? "none" : "block"; loadSessions(); });
@@ -228,6 +240,23 @@ def get_m(sid):
     with db_lock: rows = conn.execute("SELECT role, content, media FROM messages WHERE session_id=? ORDER BY id ASC", (sid,)).fetchall()
     return jsonify([{"role": r[0], "content": r[1], "media": json.loads(r[2] or "{}")} for r in rows])
 
+
+JOBS = {}
+
+def run_video_job(jid, sid, q, ctx):
+    try:
+        rep, m_obj = generate_media(q, ctx)
+        with db_lock:
+            conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps(m_obj)))
+            conn.commit()
+        JOBS[jid] = {"done": True, "reply": rep, "media": m_obj}
+    except Exception as e:
+        JOBS[jid] = {"done": True, "reply": f"⚠️ خطأ أثناء المونتاج: {str(e)[:80]}", "media": {}}
+
+@app.route("/job/<jid>")
+def check_job(jid):
+    return jsonify(JOBS.get(jid, {"done": False}))
+
 @app.route("/send_all", methods=["POST"])
 def send_all():
     sid, q, f_obj, up_path = request.form.get("sid"), request.form.get("q", "").strip(), request.files.get("file"), None
@@ -259,7 +288,12 @@ def send_all():
         else:
             rep = ask_groq_sync([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف."
         m_obj = {}
-    elif any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية")):
+    elif any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "فيلم", "ثوان", "ثانية")):
+        jid = f"j_{int(time.time())}_{random.randint(100,999)}"
+        JOBS[jid] = {"done": False}
+        threading.Thread(target=run_video_job, args=(jid, sid, q, ctx), daemon=True).start()
+        return jsonify({"sid": sid, "job_id": jid})
+    elif any(w in q.lower() for w in ("صورة", "صور", "ارسم", "image", "draw")):
         rep, m_obj = generate_media(q, ctx)
     else:
         msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
