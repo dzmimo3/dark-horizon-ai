@@ -144,25 +144,7 @@ button#sendBtn{background:#f59e0b;color:#000;border:none;width:38px;height:38px;
 <header><span class="brand">✨ DARK HORIZON AI</span><div><button class="h-btn" onclick="toggleD()">📂 السجل</button> <button class="h-btn" onclick="newS()">➕</button></div></header>
 <div id="drawer"></div><div id="chat"></div>
 <div class="footer"><div class="input-row"><input type="text" id="q" placeholder="تحدث، اطلب صورة، أو فيديو..." onkeypress="if(event.key==='Enter')sendStream()"><button id="sendBtn" onclick="sendStream()">➤</button></div></div>
-<script>
-var sid=localStorage.getItem("dh_sid")||null;
-function toggleD(){var d=document.getElementById("drawer");d.style.display=(d.style.display==="block")?"none":"block";loadS();}
-function addB(r,c,m){var chat=document.getElementById("chat"),d=document.createElement("div");d.className="msg "+(r==="User"?"user":"bot");var h=c;if(m&&m.vid)h+='<video controls playsinline src="/media/'+m.vid+'"></video><a class="dl" href="/media/'+m.vid+'" download="'+m.vid+'">⬇️ تحميل الفيديو</a>';if(m&&m.imgs)m.imgs.forEach(im=>{h+='<img src="/media/'+im+'"><a class="dl" href="/media/'+im+'" download="'+im+'">⬇️ تحميل الصورة</a>';});d.innerHTML=h;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
-function loadS(){fetch("/sessions").then(r=>r.json()).then(l=>{var d=document.getElementById("drawer");d.innerHTML="";l.forEach(s=>{d.innerHTML+='<div class="s-item"><span onclick="selS('+s.id+')">'+s.title+'</span><span onclick="delS('+s.id+')" style="color:#ef4444">✕</span></div>';});});}
-function selS(id){sid=id;localStorage.setItem("dh_sid",sid);document.getElementById("drawer").style.display="none";loadM();}
-function newS(){sid=null;localStorage.removeItem("dh_sid");document.getElementById("chat").innerHTML='<div class="msg bot">✨ محادثة جديدة جاهزة بالبث الحي!</div>';}
-function delS(id){fetch("/sessions/"+id,{method:"DELETE"}).then(()=>{if(sid==id)newS();loadS();});}
-function loadM(){if(!sid){newS();return;}fetch("/messages/"+sid).then(r=>r.json()).then(ms=>{document.getElementById("chat").innerHTML="";ms.forEach(m=>addB(m.role,m.content,m.media));});}
-async function sendStream(){
-  var qEl=document.getElementById("q"),txt=qEl.value.trim();if(!txt)return;
-  addB("User",txt,{});var w=addB("AI","▍",{});qEl.value="";
-  const res=await fetch("/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:sid,q:txt})});
-  const reader=res.body.getReader(),dec=new TextDecoder();let full="";
-  while(true){const{value,done}=await reader.read();if(done)break;dec.decode(value).split("\n").forEach(l=>{if(l.startsWith("SID:")){sid=l.slice(4);localStorage.setItem("dh_sid",sid);}else if(l.startsWith("MEDIA:")){w.remove();addB("AI",full,JSON.parse(l.slice(6)));}else if(l.startsWith("TXT:")){full+=l.slice(4).split("\\n").join("\n");w.innerHTML=full+" ▍";document.getElementById("chat").scrollTop=document.getElementById("chat").scrollHeight;}});}
-  w.innerHTML=full;loadS();
-}
-loadS();loadM();
-</script></body></html>"""
+<script src="/app.js"></script></body></html>"""
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
