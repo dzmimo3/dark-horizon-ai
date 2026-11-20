@@ -13,6 +13,16 @@ conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOIN
 conn.execute("CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT)")
 conn.commit()
 
+
+def get_key_pool(prefix):
+    keys = []
+    for k in (prefix, f"{prefix}_1", f"{prefix}_2", f"{prefix}_3", f"{prefix}_4"):
+        v = os.environ.get(k, "").strip()
+        if v and v not in keys:
+            keys.append(v)
+    random.shuffle(keys)
+    return keys
+
 def get_cfg(k):
     with db_lock:
         r = conn.execute("SELECT v FROM config WHERE k=?", (k,)).fetchone()
@@ -32,7 +42,7 @@ def fetch_wiki(q):
 
 def stream_llm(messages):
     gem_key = os.environ.get("GEMINI_API_KEY", "") or get_cfg("gemini_key")
-    groq_key = os.environ.get("GROQ_API_KEY", "") or get_cfg("groq_key")
+    g_pool = get_key_pool("GROQ_API_KEY") or ([get_cfg("groq_key")] if get_cfg("groq_key") else [])
     ans = ""
 
     # 1. Google Gemini 2.5 Flash الرسمي المجاني (يعمل 100% على خوادم Render)
@@ -52,7 +62,24 @@ def stream_llm(messages):
         except Exception: pass
 
     # 2. Groq Cloud الرسمي المجاني (Llama 3.3 70B)
-    if not ans and groq_key:
+    if not ans and g_pool:
+        for gk in g_pool:
+            try:
+                sl = chr(47)
+                gr_res = requests.post(
+                    f"https:{sl}{sl}://groq.com{sl}openai{sl}v1{sl}chat{sl}completions",
+                    headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
+                    json={"model": "llama-3.3-70b-versatile", "messages": messages},
+                    timeout=15
+                )
+                if gr_res.status_code == 200:
+                    ch = gr_res.json().get("choices", ())
+                    if ch:
+                        ans = ch.__getitem__(0).get("message", {}).get("content", "").strip()
+                        if ans: break
+            except Exception:
+                continue
+    if False:
         try:
             gr_res = requests.post(
                 "https://://groq.com/openai/v1/chat/completions",
@@ -92,7 +119,22 @@ def build_image(en_prompt):
     url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:240]) + f"?width=540&height=960&nologo=true&model=flux&seed={seed}"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
-    hf_tok = os.environ.get("HF_TOKEN", "")
+    hf_pool = get_key_pool("HF_TOKEN")
+    for hft in hf_pool:
+        try:
+            sl = chr(47)
+            hr = requests.post(
+                f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}black-forest-labs{sl}FLUX.1-schnell",
+                headers={"Authorization": f"Bearer {hft}"},
+                json={"inputs": f"{full_p[:220]}, ARRI Alexa 65, 85mm anamorphic lens, hyperrealistic, 8k"},
+                timeout=25
+            )
+            if hr.status_code == 200 and len(hr.content) > 5000:
+                img_bytes = hr.content
+                break
+        except Exception:
+            continue
+    if False:
     img_bytes = b""
     if hf_tok:
         try:
@@ -158,7 +200,8 @@ def generate_media_kit(q, hist_ctx):
             script = ""
         else:
             en_p = call_llm_sync([{"role": "system", "content": "Write ONLY a 15-word English cinematic visual prompt."}, {"role": "user", "content": source_text}]) or "cinematic evening street with glowing lanterns, 8k"
-            angles = ("wide cinematic shot", "emotional close-up portrait")
+            num_scenes = max(2, min(8, int(req_dur // 5)))
+            angles = tuple([f"cinematic movie frame part {i+1}, dynamic camera angle" for i in range(num_scenes)])
             with ThreadPoolExecutor(max_workers=2) as ex:
                 fns = list(ex.map(build_image, [f"{en_p}, {a}" for a in angles]))
             img_paths = [os.path.join(WORK, fn) for fn in fns]
