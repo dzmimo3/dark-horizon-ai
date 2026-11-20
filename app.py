@@ -393,5 +393,27 @@ def universal_send():
     except Exception as err:
         return jsonify({"sid": 1, "reply": f"⚠️ حدث خطأ بسيط وتم تجاوزه: {str(err)[:90]}", "media": {}})
 
+
+def cloud_self_doctor():
+    while True:
+        time.sleep(300)
+        try:
+            with db_lock:
+                conn.execute("DELETE FROM messages WHERE content='...' OR content LIKE '%جاري%'")
+                conn.commit()
+            now = time.time()
+            for fn in os.listdir(WORK):
+                fp = os.path.join(WORK, fn)
+                if fn != "brand_logo.png" and os.path.isfile(fp) and (now - os.path.getmtime(fp)) > 3600:
+                    os.remove(fp)
+        except Exception:
+            pass
+
+threading.Thread(target=cloud_self_doctor, daemon=True).start()
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "healthy", "studio": "DARK HORIZON FILMS LTD", "uptime": "24/7"})
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), threaded=True)
