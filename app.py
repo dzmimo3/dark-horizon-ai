@@ -83,8 +83,24 @@ def build_image(en_prompt):
     url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:240]) + f"?width=540&height=960&nologo=true&model=flux&seed={seed}"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25)
-    open(fpath, "wb").write(r.content)
+    hf_tok = os.environ.get("HF_TOKEN", "")
+    img_bytes = b""
+    if hf_tok:
+        try:
+            hr = requests.post(
+                "https://huggingface.co",
+                headers={"Authorization": f"Bearer {hf_tok}"},
+                json={"inputs": full_p[:240]},
+                timeout=25
+            )
+            if hr.status_code == 200 and len(hr.content) > 5000:
+                img_bytes = hr.content
+        except Exception:
+            pass
+    if not img_bytes:
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25)
+        img_bytes = r.content
+    open(fpath, "wb").write(img_bytes)
     logo_p = os.path.join(WORK, "brand_logo.png")
     if os.path.exists(logo_p):
         try:
