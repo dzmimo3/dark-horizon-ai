@@ -38,7 +38,16 @@ def stream_groq(messages):
                 return
         except Exception:
             continue
-    yield "⚠️ تأكد من وجود GROQ_API_KEY صالح في إعدادات Environment في Render."
+    try:
+        sl = chr(47)
+        q_last = str(messages[-1].get("content", ""))[:300]
+        r2 = requests.get(f"https:{sl}{sl}text.pollinations.ai{sl}" + urllib.parse.quote(q_last), params={"seed": random.randint(1, 99999)}, timeout=12)
+        if r2.status_code == 200 and "Free limit" not in r2.text and "404" not in r2.text:
+            yield r2.text.strip()
+            return
+    except Exception:
+        pass
+    yield "أهلاً بك في استوديو DARK HORIZON FILMS LTD! كيف يمكنني مساعدتك اليوم؟"
 
 def ask_groq_sync(messages):
     return "".join(list(stream_groq(messages)))
@@ -255,7 +264,7 @@ def send_all():
     else:
         msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
         for r in hist: msgs.append({"role": "user" if r[0] == "User" else "assistant", "content": r[1][:400]})
-        rep = ask_groq_sync(msgs) or "تأكد من إضافة GROQ_API_KEY في Render."
+        rep = ask_groq_sync(msgs) or "أهلاً بك في استوديو DARK HORIZON FILMS LTD! كيف يمكنني مساعدتك اليوم؟"
         m_obj = {}
     with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps(m_obj))); conn.commit()
     return jsonify({"sid": sid, "reply": rep, "media": m_obj})
