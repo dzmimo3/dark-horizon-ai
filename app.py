@@ -55,7 +55,7 @@ def stream_llm(messages):
     if not ans and groq_key:
         try:
             gr_res = requests.post(
-                "https://groq.com",
+                "https://://groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {groq_key.strip()}", "Content-Type": "application/json"},
                 json={"model": "llama-3.3-70b-versatile", "messages": messages},
                 timeout=15
@@ -97,7 +97,7 @@ def build_image(en_prompt):
     if hf_tok:
         try:
             hr = requests.post(
-                "https://huggingface.co",
+                "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
                 headers={"Authorization": f"Bearer {hf_tok}"},
                 json={"inputs": full_p[:240]},
                 timeout=25
