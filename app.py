@@ -127,9 +127,9 @@ HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><
 *{box-sizing:border-box;font-family:system-ui,sans-serif}body{background:#090b10;color:#f8fafc;margin:0;display:flex;flex-direction:column;height:100vh}
 header{padding:12px 16px;background:#111622;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(245,158,11,0.3)}
 .brand{font-weight:800;font-size:16px;color:#f59e0b}
-.h-btn{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(245,158,11,0.3);padding:6px 10px;border-radius:10px;font-size:12px}
+.h-btn{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(245,158,11,0.3);padding:8px 12px;border-radius:10px;font-size:13px;cursor:pointer}
 #drawer{display:none;background:#111622;padding:12px;max-height:220px;overflow-y:auto;border-bottom:1px solid #f59e0b}
-.s-item{display:flex;justify-content:space-between;padding:8px;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:6px}
+.s-item{display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:6px}
 #chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:800px;width:100%;margin:auto}
 .msg{max-width:88%;padding:12px 16px;border-radius:18px;line-height:1.6;font-size:15px;white-space:pre-wrap}
 .user{align-self:flex-start;background:#1e293b;border:1px solid #38bdf8}
@@ -137,14 +137,66 @@ header{padding:12px 16px;background:#111622;display:flex;justify-content:space-b
 .bot img,.bot video{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;margin-top:8px;background:#000}
 .dl{display:block;text-align:center;background:#f59e0b;color:#000;padding:10px;border-radius:10px;margin-top:8px;text-decoration:none;font-weight:800}
 .footer{background:#111622;padding:12px;border-top:1px solid rgba(245,158,11,0.2)}
-.input-row{max-width:800px;margin:auto;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.08);border:1px solid #f59e0b;border-radius:26px;padding:6px 14px}
-input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;outline:none}
-button#sendBtn{background:#f59e0b;color:#000;border:none;width:38px;height:38px;border-radius:50%;font-weight:bold}
+.input-row{max-width:800px;margin:auto;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.08);border:1px solid #f59e0b;border-radius:26px;padding:6px 12px}
+input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;outline:none;padding:6px}
+.c-btn{border:none;width:40px;height:40px;border-radius:50%;font-weight:bold;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#plusBtn{background:rgba(255,255,255,0.12);color:#f59e0b}
+#sendBtn{background:#f59e0b;color:#000}
 </style></head><body>
-<header><span class="brand">✨ DARK HORIZON AI</span><div><button class="h-btn" onclick="toggleD()">📂 السجل</button> <button class="h-btn" onclick="newS()">➕</button></div></header>
+<header><span class="brand">✨ DARK HORIZON AI</span><div><button type="button" id="histBtn" class="h-btn">📂 السجل</button> <button type="button" id="newBtn" class="h-btn">➕ جديد</button></div></header>
 <div id="drawer"></div><div id="chat"></div>
-<div class="footer"><div class="input-row"><input type="text" id="q" placeholder="تحدث، اطلب صورة، أو فيديو..." onkeypress="if(event.key==='Enter')sendStream()"><button id="sendBtn" onclick="sendStream()">➤</button></div></div>
-<script src="/app.js"></script></body></html>"""
+<div class="footer"><div id="fileBar" style="display:none;max-width:800px;margin:0 auto 8px;background:rgba(245,158,11,0.2);color:#fde047;padding:6px 12px;border-radius:10px;font-size:13px;justify-content:space-between"></div>
+<div class="input-row"><input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none"><button type="button" id="plusBtn" class="c-btn">+</button><input type="text" id="q" placeholder="تحدث، أرفق ملفاً، اطلب صورة أو فيديو..."><button type="button" id="sendBtn" class="c-btn">➤</button></div></div>
+<script src="/ui_logic.js"></script></body></html>"""
+
+@app.route("/ui_logic.js")
+def ui_logic():
+    code = """
+var sid = localStorage.getItem("dh_sid") || null;
+function addBubble(role, content, media){
+  var chat = document.getElementById("chat"), d = document.createElement("div");
+  d.className = "msg " + (role === "User" ? "user" : "bot");
+  var h = content;
+  if(media && media.vid) h += '<video controls playsinline src="/media/' + media.vid + '"></video><a class="dl" href="/media/' + media.vid + '" download="' + media.vid + '">⬇️ تحميل الفيديو</a>';
+  if(media && media.imgs) media.imgs.forEach(function(im){ h += '<img src="/media/' + im + '"><a class="dl" href="/media/' + im + '" download="' + im + '">⬇️ تحميل الصورة</a>'; });
+  d.innerHTML = h; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
+}
+function loadSessions(){
+  fetch("/sessions").then(function(r){ return r.json(); }).then(function(list){
+    var dr = document.getElementById("drawer"); dr.innerHTML = "";
+    list.forEach(function(s){
+      var row = document.createElement("div"); row.className = "s-item";
+      var sp = document.createElement("span"); sp.style.flex = "1"; sp.style.cursor = "pointer"; sp.textContent = s.title;
+      sp.addEventListener("click", function(){ sid = s.id; localStorage.setItem("dh_sid", sid); dr.style.display = "none"; loadMessages(); });
+      var del = document.createElement("button"); del.textContent = "✕"; del.style.cssText = "background:none;border:none;color:#ef4444;font-size:16px";
+      del.addEventListener("click", function(){ fetch("/sessions/" + s.id, {method: "DELETE"}).then(function(){ if(sid == s.id) startNew(); loadSessions(); }); });
+      row.appendChild(sp); row.appendChild(del); dr.appendChild(row);
+    });
+  });
+}
+function startNew(){ sid = null; localStorage.removeItem("dh_sid"); document.getElementById("chat").innerHTML = '<div class="msg bot">✨ محادثة جديدة جاهزة!</div>'; }
+function loadMessages(){ if(!sid){ startNew(); return; } fetch("/messages/" + sid).then(function(r){ return r.json(); }).then(function(msgs){ var chat = document.getElementById("chat"); chat.innerHTML = ""; msgs.forEach(function(m){ addBubble(m.role, m.content, m.media); }); }); }
+function sendMessage(){
+  var qEl = document.getElementById("q"), fEl = document.getElementById("fileIn"), txt = qEl.value.trim();
+  var file = (fEl.files && fEl.files.length > 0) ? fEl.files.item(0) : null;
+  if(!txt && !file) return;
+  addBubble("User", txt || ("📎 " + file.name), {});
+  var waitBox = addBubble("AI", "⚡ جاري التنفيذ...", {});
+  var fd = new FormData(); if(sid) fd.append("sid", sid); fd.append("q", txt); if(file) fd.append("file", file);
+  qEl.value = ""; fEl.value = ""; document.getElementById("fileBar").style.display = "none";
+  fetch("/send_all", {method: "POST", body: fd}).then(function(r){ return r.json(); }).then(function(d){ sid = d.sid; localStorage.setItem("dh_sid", sid); waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions(); }).catch(function(err){ waitBox.textContent = "⚠️ تعذر الاتصال: " + err.message; });
+}
+document.addEventListener("DOMContentLoaded", function(){
+  document.getElementById("histBtn").addEventListener("click", function(){ var dr = document.getElementById("drawer"); dr.style.display = (dr.style.display === "block") ? "none" : "block"; loadSessions(); });
+  document.getElementById("newBtn").addEventListener("click", startNew);
+  document.getElementById("plusBtn").addEventListener("click", function(){ document.getElementById("fileIn").click(); });
+  document.getElementById("fileIn").addEventListener("change", function(){ var fEl = document.getElementById("fileIn"), fb = document.getElementById("fileBar"); if(fEl.files && fEl.files.length > 0){ fb.style.display = "flex"; fb.innerHTML = "<span>📎 " + fEl.files.item(0).name + "</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>"; document.getElementById("clrF").addEventListener("click", function(){ fEl.value = ""; fb.style.display = "none"; }); } });
+  document.getElementById("sendBtn").addEventListener("click", sendMessage);
+  document.getElementById("q").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); sendMessage(); } });
+  loadSessions(); loadMessages();
+});
+"""
+    return Response(code, mimetype="application/javascript")
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
@@ -156,44 +208,41 @@ def health(): return jsonify({"status": "ok"})
 def sessions():
     with db_lock: rows = conn.execute("SELECT id, title FROM sessions ORDER BY id DESC").fetchall()
     return jsonify([{"id": r[0], "title": r[1]} for r in rows])
+
 @app.route("/sessions/<int:sid>", methods=["DELETE"])
 def del_s(sid):
     with db_lock: conn.execute("DELETE FROM messages WHERE session_id=?", (sid,)); conn.execute("DELETE FROM sessions WHERE id=?", (sid,)); conn.commit()
     return jsonify({"ok": True})
+
 @app.route("/messages/<int:sid>")
 def get_m(sid):
     with db_lock: rows = conn.execute("SELECT role, content, media FROM messages WHERE session_id=? ORDER BY id ASC", (sid,)).fetchall()
     return jsonify([{"role": r[0], "content": r[1], "media": json.loads(r[2] or "{}")} for r in rows])
 
-@app.route("/stream", methods=["POST"])
-def stream():
-    d = request.get_json() or {}
-    sid, q = d.get("sid"), d.get("q", "").strip()
+@app.route("/send_all", methods=["POST"])
+def send_all():
+    sid, q, f_obj, up_path = request.form.get("sid"), request.form.get("q", "").strip(), request.files.get("file"), None
+    if f_obj and f_obj.filename:
+        up_path = os.path.join(WORK, f"up_{int(time.time())}_{f_obj.filename}"); f_obj.save(up_path)
+        if not q: q = f"📎 {f_obj.filename}"
     with db_lock:
-        sid = conn.execute("INSERT INTO sessions (title) VALUES (?)", (q[:28],)).lastrowid if not sid else int(sid)
+        sid = conn.execute("INSERT INTO sessions (title) VALUES (?)", (q[:28],)).lastrowid if (not sid or sid in ("null", "undefined", "")) else int(sid)
         conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'User', ?, '{}')", (sid, q)); conn.commit()
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id DESC LIMIT 8", (sid,)).fetchall()
     hist = list(reversed(rows))
-    ctx = "\n".join([f"{r}: {c[:250]}" for r, c in hist])
-
-    def gen():
-        yield f"SID:{sid}\n"
-        if any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية")):
-            yield "TXT:⚡ جاري الإخراج عبر السحابة...\n"
-            rep, m_obj = generate_media(q, ctx)
-            with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps(m_obj))); conn.commit()
-            yield "TXT:" + rep.replace("\n", "\\n") + "\n"
-            yield "MEDIA:" + json.dumps(m_obj) + "\n"
-        else:
-            msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
-            for r, c in hist: msgs.append({"role": "user" if r == "User" else "assistant", "content": c[:400]})
-            acc = []
-            for tok in stream_groq(msgs):
-                acc.append(tok)
-                yield "TXT:" + tok.replace("\n", "\\n") + "\n"
-            with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, '{}')", (sid, "".join(acc).strip())); conn.commit()
-
-    return Response(stream_with_context(gen()), mimetype="text/plain")
+    ctx = "\n".join([f"{r[0]}: {r[1][:250]}" for r in hist])
+    if up_path and os.path.exists(up_path):
+        rep = ask_groq_sync([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف."
+        m_obj = {}
+    elif any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية")):
+        rep, m_obj = generate_media(q, ctx)
+    else:
+        msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
+        for r in hist: msgs.append({"role": "user" if r[0] == "User" else "assistant", "content": r[1][:400]})
+        rep = ask_groq_sync(msgs) or "تأكد من إضافة GROQ_API_KEY في Render."
+        m_obj = {}
+    with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps(m_obj))); conn.commit()
+    return jsonify({"sid": sid, "reply": rep, "media": m_obj})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
