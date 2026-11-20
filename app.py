@@ -31,61 +31,46 @@ def fetch_wiki(q):
     return ""
 
 def stream_llm(messages):
-    clean_msgs = []
-    for m in messages:
-        r = m.get("role", "user")
-        role_ddg = "assistant" if r == "assistant" else "user"
-        clean_msgs.append({"role": role_ddg, "content": str(m.get("content", ""))[:650]})
-
+    gem_key = os.environ.get("GEMINI_API_KEY", "") or get_cfg("gemini_key")
+    groq_key = os.environ.get("GROQ_API_KEY", "") or get_cfg("groq_key")
     ans = ""
-    # المسار 1: DuckDuckGo AI المجاني المفتوح (GPT-4o-mini / Llama-3.3) بتجديد تلقائي للجلسة
-    for ddg_model in ("gpt-4o-mini", "meta-llama/Llama-3.3-70B-Instruct-Turbo"):
-        try:
-            s = requests.Session()
-            s.headers.update({
-                "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-                "Accept": "text/event-stream",
-                "Origin": "https://duckduckgo.com",
-                "Referer": "https://duckduckgo.com"
-            })
-            st = s.get("https://duckduckgo.comduckchat/v1/status", headers={"x-vqd-accept": "1"}, timeout=8)
-            vqd = st.headers.get("x-vqd-4")
-            if vqd:
-                cr = s.post(
-                    "https://duckduckgo.comduckchat/v1/chat",
-                    headers={"x-vqd-4": vqd, "Content-Type": "application/json"},
-                    json={"model": ddg_model, "messages": clean_msgs},
-                    timeout=14
-                )
-                if cr.status_code == 200:
-                    lines = [l[6:] for l in cr.text.split("\n") if l.startswith("data: ") and "[DONE]" not in l]
-                    ans = "".join([json.loads(x).get("message", "") for x in lines if "message" in x]).strip()
-                    if ans: break
-        except Exception:
-            continue
 
-    # المسار 2: Pollinations المفتوح بتدوير الهوية
+    # 1. Google Gemini 2.5 Flash الرسمي المجاني (يعمل 100% على خوادم Render)
+    if gem_key:
+        try:
+            sys_txt, contents = "", []
+            for m in messages:
+                if m.get("role") == "system": sys_txt = str(m.get("content", ""))
+                else:
+                    rg = "model" if m.get("role") == "assistant" else "user"
+                    contents.append({"role": rg, "parts": [{"text": str(m.get("content", ""))}]})
+            payload = {"contents": contents}
+            if sys_txt: payload["systemInstruction"] = {"parts": [{"text": sys_txt}]}
+            gr = requests.post(f"https://googleapis.com{gem_key}", json=payload, timeout=15).json()
+            cands = gr.get("candidates", ())
+            if cands: ans = cands.__getitem__(0).get("content", {}).get("parts", ()).__getitem__(0).get("text", "").strip()
+        except Exception: pass
+
+    # 2. Groq Cloud الرسمي المجاني (Llama 3.3 70B)
+    if not ans and groq_key:
+        try:
+            r = requests.post("https://groq.com", headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}, json={"model": "llama-3.3-70b-versatile", "messages": messages}, timeout=12).json()
+            ch = r.get("choices", ())
+            if ch: ans = ch.__getitem__(0).get("message", {}).get("content", "").strip()
+        except Exception: pass
+
+    # 3. نقطة Pollinations النصية المباشرة مع تمرير سياق المحادثة
     if not ans:
         try:
             sl = chr(47)
-            ip = f"{random.randint(11,199)}.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}"
-            r2 = requests.post(
-                f"https:{sl}{sl}text.pollinations.ai{sl}openai",
-                headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0", "X-Forwarded-For": ip},
-                json={"model": "openai", "messages": clean_msgs, "seed": random.randint(1, 99999)},
-                timeout=12
-            )
-            if r2.status_code == 200 and "Free limit" not in r2.text:
-                ch = r2.json().get("choices", ())
-                if ch: ans = ch.__getitem__(0).get("message", {}).get("content", "").strip()
-        except Exception:
-            pass
+            ctx_q = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-4:]])[:450]
+            r2 = requests.get(f"https:{sl}{sl}text.pollinations.ai{sl}" + urllib.parse.quote(ctx_q), params={"seed": random.randint(1, 99999)}, timeout=12)
+            if r2.status_code == 200 and "Free limit" not in r2.text and "404" not in r2.text:
+                ans = r2.text.strip()
+        except Exception: pass
 
-    # المسار 3: البحث الموسوعي الفوري من ويكيبيديا
     if not ans:
-        wiki = fetch_wiki(clean_msgs.__getitem__(-1)["content"])
-        ans = f"📚 من المصادر الموثوقة:\n{wiki}" if wiki else "أنا جاهز! اكتب اسم الموضوع أو الفكرة وسأبدأ الإنتاج فوراً."
-
+        ans = "أهلاً بك! لتفعيل الذكاء الاصطناعي الكامل بسرعة ChatGPT على السحابة مجاناً، ضع مفتاح Google Gemini المجاني في زر (⚙️ API) بالأعلى."
     yield ans
 
 def call_llm_sync(messages):
@@ -224,8 +209,8 @@ button#sendBtn{background:#f59e0b;color:#000;border:none;width:38px;height:38px;
 </header>
 <div id="cfgBox" class="panel">
   <b>🌐 ربط المحركات السحابية العالمية:</b>
-  <input class="cfg-in" id="groqKey" placeholder="Groq API Key (gsk_...) - مجاني وسريع">
-  <input class="cfg-in" id="falKey" placeholder="Fal.ai API Key - للفيديو الحركي الحقيقي">
+  <input class="cfg-in" id="gemKey" placeholder="Google Gemini API Key (AIza...) - مجاني من ://google.com">
+  <input class="cfg-in" id="groqKey" placeholder="Groq API Key (gsk_...) - اختياري">
   <button class="dl" style="border:none;width:100%;cursor:pointer" onclick="saveCfg()">💾 حفظ المفاتيح السحابية</button>
 </div>
 <div id="drawer" class="panel"></div>
@@ -291,7 +276,7 @@ def index(): return render_template_string(HTML)
 def cfg():
     d = request.get_json() or {}
     with db_lock:
-        for k in ("groq_key", "fal_key"):
+        for k in ("groq_key", "gemini_key"):
             if d.get(k): conn.execute("INSERT OR REPLACE INTO config (k, v) VALUES (?, ?)", (k, d.get(k)))
         conn.commit()
     return jsonify({"ok": True})
