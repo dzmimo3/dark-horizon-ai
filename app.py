@@ -120,24 +120,62 @@ def generate_media(q, hist_ctx):
         en_p = "cinematic Arabian stallion running in golden desert dunes at sunset, 8k"
 
     if is_vid:
+        sl = chr(47)
         seed = random.randint(10000, 999999)
         script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً من جملتين بالعربية الفصحى بدون رموز."}, {"role": "user", "content": ctx_q}])
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
         has_aud = os.path.exists(aud_p) and os.path.getsize(aud_p) > 1500
-        im_p = os.path.join(WORK, f"vframe_{seed}.jpg")
-        img_ref = generate_image_item(en_p, 0)
-        if img_ref and img_ref.startswith("/media/"):
-            shutil.copy2(os.path.join(WORK, img_ref.replace("/media/", "")), im_p)
-        if not os.path.exists(im_p) or os.path.getsize(im_p) < 2000:
-            from PIL import Image
-            Image.new("RGB", (540, 960), (15, 23, 42)).save(im_p)
+
+        raw_vid = os.path.join(WORK, f"raw_{seed}.mp4")
+        got_real_video = False
+
+        # محاولة توليد فيديو حركي حقيقي (Text-to-Video AI) عبر Hugging Face GPU
+        vid_models = ("Lightricks/LTX-Video", "Wan-AI/Wan2.1-T2V-14B", "ali-vilab/text-to-video-ms-1.7b")
+        for hft in get_keys("HF_TOKEN"):
+            for v_mdl in vid_models:
+                v_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{v_mdl}"
+                try:
+                    vr = requests.post(v_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{en_p}, smooth realistic motion, dynamic action, 24fps"}, timeout=45)
+                    if vr.status_code == 200 and len(vr.content) > 25000:
+                        open(raw_vid, "wb").write(vr.content)
+                        got_real_video = True
+                        break
+                except Exception:
+                    continue
+            if got_real_video:
+                break
+
         vid_fn = f"DARK_HORIZON_{int(req_dur)}s_{seed}.mp4"
         vid_p = os.path.join(WORK, vid_fn)
-        cmd = ["ffmpeg", "-y", "-loop", "1", "-framerate", "8", "-i", im_p] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
+
+        if got_real_video and os.path.exists(raw_vid):
+            # دمج الفيديو الحركي الحقيقي مع التعليق الصوتي العربي
+            cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", raw_vid] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            # مونتاج متعدد المشاهد المتتابعة (Storytelling Sequence) بدلاً من الصورة الواحدة الثابتة
+            num_sc = 3
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                sc_urls = [u for u in ex.map(lambda i: generate_image_item(f"{en_p}, action frame {i+1}", i), range(num_sc)) if u]
+            clips = []
+            sc_dur = req_dur / max(1, len(sc_urls))
+            for idx, u in enumerate(sc_urls):
+                im_p = os.path.join(WORK, u.replace("/media/", ""))
+                cl_p = os.path.join(WORK, f"cl_{idx}_{seed}.mp4")
+                if os.path.exists(im_p):
+                    subprocess.run(["ffmpeg", "-y", "-loop", "1", "-framerate", "12", "-i", im_p, "-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-t", f"{sc_dur:.2f}", "-pix_fmt", "yuv420p", cl_p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if os.path.exists(cl_p): clips.append(cl_p)
+            lst_p = os.path.join(WORK, f"lst_{seed}.txt")
+            open(lst_p, "w").write("\n".join([f"file '{c}'" for c in clips]))
+            m_vid = os.path.join(WORK, f"m_{seed}.mp4")
+            subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst_p, "-c", "copy", m_vid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            cmd = ["ffmpeg", "-y", "-i", m_vid] + (["-i", aud_p, "-c:v", "copy", "-c:a", "aac"] if has_aud else ["-c", "copy"]) + ["-t", f"{req_dur:.2f}", vid_p]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        mode_lbl = "فيديو حركي بالذكاء الاصطناعي (AI Motion)" if got_real_video else "مونتاج مشاهد متتابعة"
+        return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({mode_lbl} - {int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "photos")) else 1)
