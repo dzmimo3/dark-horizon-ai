@@ -110,6 +110,21 @@ def analyze_file_with_gemini(fpath, user_q):
     return ""
 
 def smart_ai(messages):
+
+    # بوابة Pollinations الرسمية بالمفتاح السري (Budget: ∞)
+    pk = os.environ.get("POLLINATIONS_API_KEY", "").strip()
+    if pk:
+        try:
+            pr = requests.post("https://pollinations.ai",
+                               headers={"Authorization": f"Bearer {pk}", "Content-Type": "application/json"},
+                               json={"model": "openai", "messages": messages[-6:]}, timeout=14)
+            if pr.status_code == 200:
+                c0 = next(iter(pr.json().get("choices", [])), {})
+                txt = c0.get("message", {}).get("content", "").strip()
+                if txt: return txt
+        except Exception:
+            pass
+
     sl = chr(47)
     groq_key = os.environ.get("GROQ_API_KEY", "").strip()
     if groq_key:
