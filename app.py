@@ -142,7 +142,7 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, single full screen frame, sharp focus, crisp details, 8k photorealistic, no split screen, no collage"
+    full_p = f"{en_prompt}, natural human proportions, realistic DSLR photography, sharp focus, crisp skin details, 8k, symmetrical face"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
@@ -162,11 +162,11 @@ def generate_image_item(en_prompt, idx=0):
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 544, "height": 960} if "flux" in c_mdl else {"prompt": full_p[:240], "width": 544, "height": 960}
+            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 768, "height": 1024} if "flux" in c_mdl else {"prompt": full_p[:240], "negative_prompt": "deformed, distorted, disfigured, bad anatomy, long neck, mutated, extra limbs, floating head, ugly, blurry, low quality, cartoon, 3d render", "width": 768, "height": 1024}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
