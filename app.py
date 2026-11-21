@@ -171,7 +171,7 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, modest respectful attire, fully clothed, natural human proportions, realistic DSLR photography, sharp focus, crisp skin details, 8k, symmetrical face"
+    full_p = f"{en_prompt}, RAW candid DSLR photograph shot on Canon EOS R5, 85mm f1.4 lens, authentic skin texture with visible pores, natural lighting, unretouched real life photo, modest respectful attire, fully clothed"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
@@ -191,11 +191,11 @@ def generate_image_item(en_prompt, idx=0):
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell",)
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 768, "height": 1024} if "flux" in c_mdl else {"prompt": full_p[:240], "negative_prompt": "nsfw, nude, naked, revealing clothes, cleavage, lingerie, bikini, semi-nude, deformed, distorted, disfigured, bad anatomy, long neck, mutated, extra limbs, floating head, ugly, blurry, low quality, cartoon, 3d render", "width": 768, "height": 1024}
+            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 768, "height": 1024} if "flux" in c_mdl else {"prompt": full_p[:240], "negative_prompt": "nsfw, nude, naked, revealing clothes, cleavage, lingerie, bikini, semi-nude, deformed, distorted, disfigured, bad anatomy, long neck, mutated, extra limbs, floating head, ugly, blurry, low quality, oil painting, digital painting, smooth skin, airbrushed, plastic skin, CGI, 3d render, cartoon, anime, illustration, wax figure", "width": 768, "height": 1024}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
