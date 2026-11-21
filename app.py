@@ -171,7 +171,7 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, natural human proportions, realistic DSLR photography, sharp focus, crisp skin details, 8k, symmetrical face"
+    full_p = f"{en_prompt}, modest respectful attire, fully clothed, natural human proportions, realistic DSLR photography, sharp focus, crisp skin details, 8k, symmetrical face"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
@@ -195,7 +195,7 @@ def generate_image_item(en_prompt, idx=0):
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 768, "height": 1024} if "flux" in c_mdl else {"prompt": full_p[:240], "negative_prompt": "deformed, distorted, disfigured, bad anatomy, long neck, mutated, extra limbs, floating head, ugly, blurry, low quality, cartoon, 3d render", "width": 768, "height": 1024}
+            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 768, "height": 1024} if "flux" in c_mdl else {"prompt": full_p[:240], "negative_prompt": "nsfw, nude, naked, revealing clothes, cleavage, lingerie, bikini, semi-nude, deformed, distorted, disfigured, bad anatomy, long neck, mutated, extra limbs, floating head, ugly, blurry, low quality, cartoon, 3d render", "width": 768, "height": 1024}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
@@ -252,7 +252,7 @@ def fast_ar_to_en(text, web_facts=""):
     if not en:
         en = clean
     if any(w in text for w in ("بنات", "بنت", "نساء", "امرأة", "فتاة", "فتيات")):
-        en = f"beautiful young women, female portrait, {en}, sharp DSLR photography, detailed skin texture, 8k"
+        en = f"modest elegant young women wearing respectful modest clothing, fully clothed, female portrait, {en}, sharp DSLR photography, detailed skin texture, 8k"
     elif any(w in text for w in ("رجال", "رجل", "شاب", "شباب", "فارس", "فرسان")):
         en = f"handsome adult men, masculine male portrait, {en}, sharp DSLR photography, detailed skin texture, 8k"
     else:
