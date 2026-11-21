@@ -4,3 +4,4 @@ edge-tts
 pillow
 pymupdf
 gunicorn
+gradio_client

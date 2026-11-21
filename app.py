@@ -165,15 +165,34 @@ def fast_ar_to_en(text):
 
 def try_free_t2v(prompt_en, out_mp4):
     sl = chr(47)
-    # أ. محاولة Hugging Face Inference API بنماذج الفيديو السريعة
-    for hft in get_keys("HF_TOKEN"):
-        for vm in ("Lightricks/LTX-Video", "Wan-AI/Wan2.1-T2V-14B", "ali-vilab/text-to-video-ms-1.7b"):
+    hf_tok = (get_keys("HF_TOKEN") or [None])
+    # 1. الاتصال المباشر بأقوى مساحات الفيديو الحركي الواقعي المجانية (NVIDIA H100/A100)
+    spaces = ("Wan-AI/Wan2.1", "Lightricks/LTX-Video-Distilled", "THUDM/CogVideoX-5B-Space")
+    try:
+        from gradio_client import Client
+        for sp in spaces:
             try:
-                vr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{vm}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{prompt_en}, dynamic realistic camera and subject motion, 24fps"}, timeout=45)
+                client = Client(sp, hf_token=hf_tok)
+                res = client.predict(prompt=f"{prompt_en}, photorealistic live action film, smooth natural movement, 24fps", api_name="/predict")
+                v_path = res.get("video", "") if isinstance(res, dict) else (res if isinstance(res, list) else str(res))
+                if v_path and os.path.exists(v_path) and os.path.getsize(v_path) > 25000:
+                    shutil.copy2(v_path, out_mp4)
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # 2. واجهة Hugging Face Inference السريعة كمسار ثانٍ
+    for hft in get_keys("HF_TOKEN"):
+        for vm in ("Lightricks/LTX-Video", "Wan-AI/Wan2.1-T2V-14B"):
+            try:
+                vr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{vm}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{prompt_en}, live action realistic film, dynamic motion"}, timeout=55)
                 if vr.status_code == 200 and len(vr.content) > 25000:
                     open(out_mp4, "wb").write(vr.content)
                     return True
-            except Exception: continue
+            except Exception:
+                continue
     return False
 
 def try_free_lipsync(img_path, aud_path, out_mp4):
