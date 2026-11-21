@@ -140,7 +140,7 @@ def generate_media(q, hist_ctx):
         return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
 
     m_cnt = re.search(r"(\d+)", q)
-    count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة")) else 1)
+    count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "photos")) else 1)
     with ThreadPoolExecutor(max_workers=3) as ex:
         urls = [u for u in ex.map(lambda i: generate_image_item(en_p, i), range(count)) if u]
     if len(urls) > 1:
@@ -275,7 +275,7 @@ def send_all():
     hist = list(reversed(rows))
     ctx = "\n".join([f"{r_role}: {r_cnt[:250]}" for r_role, r_cnt in hist])
     is_q = q.startswith(("هل", "لماذا", "كيف", "ما هو", "ما هي", "وش", "واش", "اين", "أين"))
-    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية", "عشر"))
+    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "photo", "pic", "فيلم", "ثوان", "ثانية", "عشر", "المزيد", "مزيد", "أخرى", "اخرى", "غيرها", "more"))
     if is_m:
         jid = f"j_{int(time.time())}_{random.randint(100,999)}"
         with db_lock: conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,)); conn.commit()
