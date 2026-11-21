@@ -145,6 +145,22 @@ async def make_voice(txt, mp3):
     v = "ar-AE-HamdanNeural" if any("\u0600" <= c <= "\u06FF" for c in clean) else "en-US-ChristopherNeural"
     await edge_tts.Communicate(clean, v, rate="+2%").save(mp3)
 
+
+def fast_ar_to_en(text):
+    sl = chr(47)
+    clean = re.sub(r"(اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip()
+    if not clean: clean = text
+    try:
+        u = f"https:{sl}{sl}://googleapis.com{sl}translate_a{sl}single"
+        r = requests.get(u, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": clean[:250]}, timeout=8)
+        if r.status_code == 200:
+            en = "".join([seg for seg in r.json() if seg]).strip()
+            if en and len(en) > 2:
+                return f"{en}, cinematic lighting, ultra realistic, 8k"
+    except Exception:
+        pass
+    return f"cinematic epic historical scene, {random.randint(1,999)}, 8k"
+
 def generate_media(q, hist_ctx):
     low = q.lower().strip()
     is_vid = any(w in low for w in ("فيديو", "video", "وثائقي", "فيلم", "ثوان", "ثانية", "ثواني"))
@@ -196,8 +212,7 @@ def generate_media(q, hist_ctx):
         else:
             # مونتاج متعدد المشاهد المتتابعة (Storytelling Sequence) بدلاً من الصورة الواحدة الثابتة
             num_sc = 3
-            with ThreadPoolExecutor(max_workers=3) as ex:
-                sc_urls = [u for u in ex.map(lambda i: generate_image_item(f"{en_p}, action frame {i+1}", i), range(num_sc)) if u]
+            sc_urls = [u for u in [generate_image_item(f"{en_p}, cinematic scene {i+1}", i) for i in range(num_sc)] if u]
             clips = []
             sc_dur = req_dur / max(1, len(sc_urls))
             for idx, u in enumerate(sc_urls):
