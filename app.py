@@ -313,63 +313,188 @@ input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:
 def ui_logic():
     code = """
 var sid = localStorage.getItem("dh_sid") || null;
-function openLightbox(src, idx){
-  var lb=document.getElementById("lightbox"), im=document.getElementById("lbImg"), dl=document.getElementById("lbDl");
-  im.src=src; dl.href=src; dl.download="DARK_HORIZON_"+(idx+1)+".jpg"; lb.style.display="flex";
+
+function openLightbox(src, idx) {
+  var lb = document.getElementById("lightbox");
+  var im = document.getElementById("lbImg");
+  var dl = document.getElementById("lbDl");
+  if (!lb || !im || !dl) return;
+  im.src = src;
+  dl.href = src;
+  dl.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
+  lb.style.display = "flex";
 }
-function triggerDownload(url, fn){
-  var a=document.createElement("a"); a.href=url; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+function triggerDownload(url, fn) {
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = fn;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
-function dlAllImgs(enc){
-  JSON.parse(decodeURIComponent(enc)).forEach(function(u, idx){
-    setTimeout(function(){ triggerDownload(u, "DARK_HORIZON_"+(idx+1)+".jpg"); }, idx*400);
-  });
+
+function dlAllImgs(enc) {
+  try {
+    var arr = JSON.parse(decodeURIComponent(enc));
+    arr.forEach(function(u, idx) {
+      setTimeout(function() { triggerDownload(u, "DARK_HORIZON_" + (idx + 1) + ".jpg"); }, idx * 450);
+    });
+  } catch (e) {}
 }
-function addBubble(role, content, media){
-  var chat=document.getElementById("chat"), d=document.createElement("div"); d.className="msg "+(role==="User"?"user":"bot"); var h=content;
-  if(media && media.vid){
-    h+='<div class="img-wrap"><video controls playsinline src="'+media.vid+'" style="width:100%;border-radius:14px"></video><a class="glass-dl" href="'+media.vid+'" download="DARK_HORIZON_VIDEO.mp4" title="تحميل">⬇️</a></div>';
+
+function addBubble(role, content, media) {
+  var chat = document.getElementById("chat");
+  var d = document.createElement("div");
+  d.className = "msg " + (role === "User" ? "user" : "bot");
+  var h = content || "";
+  if (media && media.vid) {
+    h += '<div class="img-wrap"><video controls playsinline src="' + media.vid + '" style="width:100%;border-radius:14px"></video><a class="glass-dl" href="' + media.vid + '" download="DARK_HORIZON_VIDEO.mp4">⬇️</a></div>';
   }
-  if(media && media.imgs && media.imgs.length>0){
-    if(media.imgs.length>1){
-      var ls=encodeURIComponent(JSON.stringify(media.imgs));
-      h+='<div><button type="button" class="dl-all" onclick="dlAllImgs(\''+ls+'\')">⬇️ حفظ الكل ('+media.imgs.length+')</button></div><div class="img-grid">';
-      media.imgs.forEach(function(u,i){
-        h+='<div class="img-wrap" style="margin-top:0"><img src="'+u+'" style="aspect-ratio:9/16;object-fit:cover" onclick="openLightbox(this.src,'+i+')"><a class="glass-dl" href="'+u+'" download="DARK_HORIZON_'+(i+1)+'.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+  if (media && media.imgs && media.imgs.length > 0) {
+    if (media.imgs.length > 1) {
+      var ls = encodeURIComponent(JSON.stringify(media.imgs));
+      h += '<div><button type="button" class="dl-all" onclick="dlAllImgs(\'' + ls + '\')">⬇️ حفظ الكل (' + media.imgs.length + ')</button></div><div class="img-grid">';
+      media.imgs.forEach(function(u, i) {
+        h += '<div class="img-wrap" style="margin-top:0"><img src="' + u + '" style="aspect-ratio:9/16;object-fit:cover" onclick="openLightbox(this.src,' + i + ')"><a class="glass-dl" href="' + u + '" download="DARK_HORIZON_' + (i + 1) + '.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
       });
-      h+='</div>';
+      h += '</div>';
     } else {
-      var u=media.imgs;
-      h+='<div class="img-wrap"><img src="'+u+'" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="'+u+'" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+      var u = media.imgs;
+      h += '<div class="img-wrap"><img src="' + u + '" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="' + u + '" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
     }
   }
-  d.innerHTML=h; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d;
+  d.innerHTML = h;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
 }
-function safeJson(res){ return res.text().then(function(t){ try{return JSON.parse(t);}catch(e){throw new Error("الخادم يستيقظ، أعد المحاولة الآن.");} }); }
-function loadSessions(){ fetch("/sessions").then(safeJson).then(function(list){ var dr=document.getElementById("drawer"); dr.innerHTML=""; list.forEach(function(s){ var row=document.createElement("div"); row.className="s-item"; var sp=document.createElement("span"); sp.style.cssText="flex:1;cursor:pointer"; sp.textContent=s.title; sp.addEventListener("click",function(){sid=s.id;localStorage.setItem("dh_sid",sid);dr.style.display="none";loadMessages();}); var del=document.createElement("button"); del.textContent="✕"; del.style.cssText="background:none;border:none;color:#ef4444;font-size:16px"; del.addEventListener("click",function(){fetch("/sessions/"+s.id,{method:"DELETE"}).then(function(){if(sid==s.id)startNew();loadSessions();});}); row.appendChild(sp); row.appendChild(del); dr.appendChild(row); }); }).catch(function(){}); }
-function startNew(){ sid=null; localStorage.removeItem("dh_sid"); document.getElementById("chat").innerHTML='<div class="msg bot">✨ استوديو DARK HORIZON AI جاهز! ابحث، تحدث، أو أنشئ صوراً وفيديوهات 8K.</div>'; }
-function loadMessages(){ if(!sid){startNew();return;} fetch("/messages/"+sid).then(safeJson).then(function(msgs){ var chat=document.getElementById("chat"); chat.innerHTML=""; msgs.forEach(function(m){addBubble(m.role,m.content,m.media);}); }).catch(function(){startNew();}); }
-function sendMessage(){
-  var qEl=document.getElementById("q"), fEl=document.getElementById("fileIn"), txt=qEl.value.trim(), file=(fEl.files&&fEl.files.length>0)?fEl.files:null;
-  if(!txt && !file) return;
-  addBubble("User", txt||("📎 "+file.name), {}); var waitBox=addBubble("AI", "⚡ جاري التنفيذ...", {});
-  var fd=new FormData(); if(sid)fd.append("sid",sid); fd.append("q",txt); if(file)fd.append("file",file);
-  qEl.value=""; fEl.value=""; document.getElementById("fileBar").style.display="none";
-  fetch("/send_all", {method:"POST", body:fd}).then(safeJson).then(function(d){
-    sid=d.sid; localStorage.setItem("dh_sid",sid);
-    if(d.job_id){ waitBox.textContent="🎨🎬 جاري التصميم والإخراج السينمائي 8K..."; var iv=setInterval(function(){ fetch("/job/"+d.job_id).then(safeJson).then(function(st){ if(st.done){clearInterval(iv);waitBox.remove();addBubble("AI",st.reply,st.media);loadSessions();} }).catch(function(){}); }, 1500); }
-    else { waitBox.remove(); addBubble("AI",d.reply,d.media); loadSessions(); }
-  }).catch(function(err){ waitBox.textContent="⚠️ "+err.message; });
+
+function safeJson(res) {
+  return res.text().then(function(t) {
+    try { return JSON.parse(t); } catch (e) { throw new Error("الخادم يستيقظ، أعد المحاولة الآن."); }
+  });
 }
-document.addEventListener("DOMContentLoaded", function(){
-  document.getElementById("docBtn").addEventListener("click",function(){ fetch("/doctor").then(safeJson).then(function(d){ addBubble("AI", d.report, {}); }); });
-  document.getElementById("histBtn").addEventListener("click",function(){var dr=document.getElementById("drawer");dr.style.display=(dr.style.display==="block")?"none":"block";loadSessions();});
-  document.getElementById("newBtn").addEventListener("click",startNew);
-  document.getElementById("plusBtn").addEventListener("click",function(){document.getElementById("fileIn").click();});
-  document.getElementById("fileIn").addEventListener("change",function(){var fEl=document.getElementById("fileIn"),fb=document.getElementById("fileBar");if(fEl.files&&fEl.files.length>0){fb.style.display="flex";fb.innerHTML="<span>📎 "+fEl.files.name+"</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>";document.getElementById("clrF").addEventListener("click",function(){fEl.value="";fb.style.display="none";});}});
-  document.getElementById("sendBtn").addEventListener("click",sendMessage);
-  document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();sendMessage();}});
-  document.getElementById("lbClose").addEventListener("click",function(){document.getElementById("lightbox").style.display="none";}); document.getElementById("lightbox").addEventListener("click",function(e){if(e.target.id==="lightbox")this.style.display="none";}); loadSessions(); loadMessages();
+
+function loadSessions() {
+  fetch("/sessions").then(safeJson).then(function(list) {
+    var dr = document.getElementById("drawer");
+    dr.innerHTML = "";
+    list.forEach(function(s) {
+      var row = document.createElement("div");
+      row.className = "s-item";
+      var sp = document.createElement("span");
+      sp.style.cssText = "flex:1;cursor:pointer";
+      sp.textContent = s.title;
+      sp.addEventListener("click", function() {
+        sid = s.id;
+        localStorage.setItem("dh_sid", sid);
+        dr.style.display = "none";
+        loadMessages();
+      });
+      var del = document.createElement("button");
+      del.textContent = "✕";
+      del.style.cssText = "background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer";
+      del.addEventListener("click", function() {
+        fetch("/sessions/" + s.id, { method: "DELETE" }).then(function() {
+          if (sid == s.id) startNew();
+          loadSessions();
+        });
+      });
+      row.appendChild(sp);
+      row.appendChild(del);
+      dr.appendChild(row);
+    });
+  }).catch(function() {});
+}
+
+function startNew() {
+  sid = null;
+  localStorage.removeItem("dh_sid");
+  document.getElementById("chat").innerHTML = '<div class="msg bot">✨ استوديو DARK HORIZON AI جاهز! ابحث، تحدث، أو أنشئ صوراً وفيديوهات 8K.</div>';
+}
+
+function loadMessages() {
+  if (!sid) { startNew(); return; }
+  fetch("/messages/" + sid).then(safeJson).then(function(msgs) {
+    var chat = document.getElementById("chat");
+    chat.innerHTML = "";
+    msgs.forEach(function(m) { addBubble(m.role, m.content, m.media); });
+  }).catch(function() { startNew(); });
+}
+
+function sendMessage() {
+  var qEl = document.getElementById("q");
+  var fEl = document.getElementById("fileIn");
+  var txt = qEl.value.trim();
+  var file = (fEl.files && fEl.files.length > 0) ? fEl.files : null;
+  if (!txt && !file) return;
+  addBubble("User", txt || ("📎 " + file.name), {});
+  var waitBox = addBubble("AI", "⚡ جاري التنفيذ...", {});
+  var fd = new FormData();
+  if (sid) fd.append("sid", sid);
+  fd.append("q", txt);
+  if (file) fd.append("file", file);
+  qEl.value = "";
+  fEl.value = "";
+  document.getElementById("fileBar").style.display = "none";
+  fetch("/send_all", { method: "POST", body: fd }).then(safeJson).then(function(d) {
+    sid = d.sid;
+    localStorage.setItem("dh_sid", sid);
+    if (d.job_id) {
+      waitBox.textContent = "🎨🎬 جاري التصميم والإخراج السينمائي 8K...";
+      var iv = setInterval(function() {
+        fetch("/job/" + d.job_id).then(safeJson).then(function(st) {
+          if (st.done) {
+            clearInterval(iv);
+            waitBox.remove();
+            addBubble("AI", st.reply, st.media);
+            loadSessions();
+          }
+        }).catch(function() {});
+      }, 1500);
+    } else {
+      waitBox.remove();
+      addBubble("AI", d.reply, d.media);
+      loadSessions();
+    }
+  }).catch(function(err) { waitBox.textContent = "⚠️ " + err.message; });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var docBtn = document.getElementById("docBtn");
+  if (docBtn) docBtn.addEventListener("click", function() {
+    fetch("/doctor").then(safeJson).then(function(d) { addBubble("AI", d.report, {}); });
+  });
+  var histBtn = document.getElementById("histBtn");
+  if (histBtn) histBtn.addEventListener("click", function() {
+    var dr = document.getElementById("drawer");
+    dr.style.display = (dr.style.display === "block") ? "none" : "block";
+    loadSessions();
+  });
+  var newBtn = document.getElementById("newBtn");
+  if (newBtn) newBtn.addEventListener("click", startNew);
+  var plusBtn = document.getElementById("plusBtn");
+  if (plusBtn) plusBtn.addEventListener("click", function() { document.getElementById("fileIn").click(); });
+  var fileIn = document.getElementById("fileIn");
+  if (fileIn) fileIn.addEventListener("change", function() {
+    var fb = document.getElementById("fileBar");
+    if (fileIn.files && fileIn.files.length > 0) {
+      fb.style.display = "flex";
+      fb.innerHTML = "<span>📎 " + fileIn.files.name + "</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>";
+      document.getElementById("clrF").addEventListener("click", function() { fileIn.value = ""; fb.style.display = "none"; });
+    }
+  });
+  var sendBtn = document.getElementById("sendBtn");
+  if (sendBtn) sendBtn.addEventListener("click", sendMessage);
+  var qIn = document.getElementById("q");
+  if (qIn) qIn.addEventListener("keydown", function(e) { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } });
+  var lbClose = document.getElementById("lbClose");
+  if (lbClose) lbClose.addEventListener("click", function() { document.getElementById("lightbox").style.display = "none"; });
+  var lb = document.getElementById("lightbox");
+  if (lb) lb.addEventListener("click", function(e) { if (e.target.id === "lightbox") lb.style.display = "none"; });
+  loadSessions();
+  loadMessages();
 });
 """
     return Response(code, mimetype="application/javascript")
