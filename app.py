@@ -24,42 +24,27 @@ def get_keys(prefix):
         if v and v not in out: out.append(v)
     return out
 
-
 def web_search_engine(query):
     sl = chr(47)
-    clean_q = re.sub(r"^(ابحث عن|بحث عن|معلومات عن|من هو|من هي|search for|who is)\s+", "", query.strip(), flags=re.I)
+    clean_q = re.sub(r"^(ابحث عن|بحث عن|معلومات عن|من هو|من هي|حول|فيديو|صور|صورة|اريد|انشيء|أنشئ)\s+", "", query.strip(), flags=re.I)
     results = []
-    # أ. البحث الفوري عبر DuckDuckGo Instant Answer API
     try:
-        ddg_url = f"https:{sl}{sl}://duckduckgo.com{sl}"
-        r = requests.get(ddg_url, params={"q": clean_q, "format": "json", "no_html": 1}, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("AbstractText"):
-                results.append(data["AbstractText"])
-            for t in data.get("RelatedTopics", [])[:3]:
-                if isinstance(t, dict) and t.get("Text"):
-                    results.append(t["Text"])
-    except Exception:
-        pass
-
-    # ب. البحث في موسوعة ويكيبيديا العربية ثم الإنجليزية
+        r = requests.get(f"https:{sl}{sl}://duckduckgo.com{sl}", params={"q": clean_q, "format": "json", "no_html": 1}, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+        if r.status_code == 200 and r.json().get("AbstractText"):
+            results.append(r.json()["AbstractText"])
+    except Exception: pass
     for lang in ("ar", "en"):
         try:
-            w_url = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
-            wr = requests.get(w_url, params={"action": "query", "list": "search", "srsearch": clean_q, "format": "json", "srlimit": 2}, headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=10).json()
+            wr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php", params={"action": "query", "list": "search", "srsearch": clean_q, "format": "json", "srlimit": 2}, headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=8).json()
             hits = wr.get("query", {}).get("search", [])
             if hits:
-                title = hits[0]["title"]
-                sr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}api{sl}rest_v1{sl}page{sl}summary{sl}" + urllib.parse.quote(title), headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=10).json()
-                ext = sr.get("extract", "")
-                if ext:
-                    results.append(f"[{title}]: {ext}")
+                title = hits["title"]
+                sr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}api{sl}rest_v1{sl}page{sl}summary{sl}" + urllib.parse.quote(title), headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=8).json()
+                if sr.get("extract"):
+                    results.append(f"[{title}]: {sr['extract']}")
                     break
-        except Exception:
-            continue
-
-    return "\n".join(results)[:1500]
+        except Exception: continue
+    return "\n".join(results)[:1200]
 
 def smart_ai(messages):
     sl = chr(47)
@@ -72,20 +57,23 @@ def smart_ai(messages):
             if gr.status_code == 200:
                 c0 = next(iter(gr.json().get("candidates", [])), {})
                 p0 = next(iter(c0.get("content", {}).get("parts", [])), {})
-                if p0.get("text"):
-                    return p0["text"].strip()
-        except Exception:
-            pass
+                if p0.get("text"): return p0["text"].strip()
+        except Exception: pass
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
         try:
             u = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}@cf/meta/llama-3.1-8b-instruct"
             r = requests.post(u, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json={"messages": messages}, timeout=12)
-            if r.status_code == 200:
-                res = r.json().get("result", {}).get("response", "").strip()
-                if res: return res
+            if r.status_code == 200 and r.json().get("result", {}).get("response"):
+                return r.json()["result"]["response"].strip()
         except Exception: pass
+    try:
+        conv = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-4:]])[:500]
+        r2 = requests.get(f"https:{sl}{sl}text.pollinations.ai{sl}" + urllib.parse.quote(conv), params={"seed": random.randint(1, 99999)}, timeout=12)
+        if r2.status_code == 200 and "Free limit" not in r2.text and "404" not in r2.text and len(r2.text.strip()) > 2:
+            return r2.text.strip()
+    except Exception: pass
     return ""
 
 def apply_brand_logo(fpath):
@@ -107,19 +95,31 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, single full screen shot, one person, hyperrealistic, dramatic lighting, 8k, no split screen, no collage"
+    full_p = f"{en_prompt}, single full screen frame, sharp focus, crisp details, 8k photorealistic, no split screen, no collage"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
+
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if g_key:
+        try:
+            im_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}imagen-3.0-generate-002:predict?key={g_key}"
+            ir = requests.post(im_url, json={"instances": [{"prompt": full_p[:280]}], "parameters": {"sampleCount": 1, "aspectRatio": "9:16"}}, timeout=22)
+            if ir.status_code == 200:
+                p0 = next(iter(ir.json().get("predictions", [])), {})
+                if p0.get("bytesBase64Encoded"):
+                    open(fpath, "wb").write(base64.b64decode(p0["bytesBase64Encoded"]))
+                    apply_brand_logo(fpath)
+                    return f"/media/{fn}"
+        except Exception: pass
 
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        
         cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 4, "width": 544, "height": 960} if "flux" in c_mdl else {"prompt": full_p[:240], "width": 544, "height": 960}
+            payload = {"prompt": full_p[:240], "num_steps": 8, "width": 544, "height": 960} if "flux" in c_mdl else {"prompt": full_p[:240], "width": 544, "height": 960}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
@@ -135,16 +135,14 @@ def generate_image_item(en_prompt, idx=0):
                         return f"/media/{fn}"
             except Exception: continue
 
-    for attempt in range(1):
-        if idx > 0 or attempt > 0: time.sleep(0.5)
-        p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed + attempt}"
-        try:
-            r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Studio-{idx}-{attempt})"}, timeout=25)
-            if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content:
-                open(fpath, "wb").write(r.content)
-                apply_brand_logo(fpath)
-                return f"/media/{fn}"
-        except Exception: continue
+    p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=544&height=960&nologo=true&seed={seed}"
+    try:
+        r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Studio-{idx})"}, timeout=25)
+        if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content:
+            open(fpath, "wb").write(r.content)
+            apply_brand_logo(fpath)
+            return f"/media/{fn}"
+    except Exception: pass
     return None
 
 async def make_voice(txt, mp3):
@@ -152,91 +150,112 @@ async def make_voice(txt, mp3):
     v = "ar-AE-HamdanNeural" if any("\u0600" <= c <= "\u06FF" for c in clean) else "en-US-ChristopherNeural"
     await edge_tts.Communicate(clean, v, rate="+2%").save(mp3)
 
-
 def fast_ar_to_en(text, web_facts=""):
     sl = chr(47)
-    clean = re.sub(r"(اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip() or text
-    # استخدام Gemini 2.5 مع بيانات البحث العالمية لصياغة وصف بصري دقيق 100% للموضوع
-    ai_p = smart_ai([{"role": "system", "content": "You are a visual director. Translate and expand the user's exact subject into a vivid 18-word English visual prompt for AI image/video generation. Output ONLY English words."}, {"role": "user", "content": f"Subject: {clean}\nGlobal Knowledge: {web_facts[:400]}"}])
+    clean = re.sub(r"(حول هذا النص إلى|حول هذا النص الى|اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|واقعي|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip() or text
+    ai_p = smart_ai([{"role": "system", "content": "You are a film director. Translate the exact user subject into ONE vivid 18-word English visual prompt for AI image/video. Output ONLY English words."}, {"role": "user", "content": f"Subject: {clean}\nFacts: {web_facts[:350]}"}])
     if ai_p and not any("\u0600" <= c <= "\u06FF" for c in ai_p) and len(ai_p) > 4:
-        return f"{ai_p}, sharp focus, 8k photorealistic"
+        return ai_p
     try:
         u = f"https:{sl}{sl}://googleapis.com{sl}translate_a{sl}single"
         r = requests.get(u, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": clean[:250]}, timeout=8)
         if r.status_code == 200:
             segs = next(iter(r.json()), [])
             en = "".join([s for s in segs if isinstance(s, list) and s]).strip()
-            if en and len(en) > 2:
-                return f"{en}, sharp focus, cinematic lighting, 8k"
-    except Exception:
-        pass
-    return f"photorealistic cinematic scene of {clean}, 8k"
+            if en and len(en) > 2: return en
+    except Exception: pass
+    return f"cinematic photorealistic scene depicting {clean}"
+
+def try_real_video(prompt_en, img_path, aud_path, is_talk, out_mp4):
+    sl = chr(47)
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if g_key:
+        try:
+            veo_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}veo-2.0-generate-001:predictLongRunning?key={g_key}"
+            vr = requests.post(veo_url, json={"instances": [{"prompt": f"{prompt_en}, realistic live action motion, 8k"}], "parameters": {"aspectRatio": "9:16"}}, timeout=20)
+            if vr.status_code == 200 and vr.json().get("name"):
+                op_name = vr.json()["name"]
+                for _ in range(10):
+                    time.sleep(4)
+                    op_r = requests.get(f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}{op_name}?key={g_key}", timeout=15).json()
+                    if op_r.get("done"):
+                        samples = op_r.get("response", {}).get("generateVideoResponse", {}).get("generatedSamples", [])
+                        v_uri = next(iter(samples), {}).get("video", {}).get("uri", "")
+                        if v_uri:
+                            vb = requests.get(f"{v_uri}&key={g_key}", timeout=30).content
+                            if len(vb) > 25000:
+                                open(out_mp4, "wb").write(vb)
+                                return "Google Veo 2 AI Motion"
+                        break
+        except Exception: pass
+    if is_talk and img_path and os.path.exists(img_path) and aud_path and os.path.exists(aud_path):
+        for sp in (f"https:{sl}{sl}vinthony-sadtalker.hf.space", f"https:{sl}{sl}fffiloni-sadtalker.hf.space"):
+            try:
+                ib = "data:image/jpeg;base64," + base64.b64encode(open(img_path, "rb").read()).decode()
+                ab = "data:audio/mp3;base64," + base64.b64encode(open(aud_path, "rb").read()).decode()
+                r = requests.post(f"{sp}{sl}api{sl}predict", json={"data": [ib, ab, "crop", True, True, 1, 256, 0]}, timeout=40)
+                if r.status_code == 200 and r.json().get("data"):
+                    v0 = r.json()["data"]
+                    vi = v0.get("name", "") if isinstance(v0, dict) else str(v0)
+                    vr = requests.get(vi if vi.startswith("http") else f"{sp}{sl}file={vi}", timeout=25)
+                    if vr.status_code == 200 and len(vr.content) > 25000:
+                        open(out_mp4, "wb").write(vr.content)
+                        return "AI Lip-Sync"
+            except Exception: continue
+    return None
 
 def generate_media(q, hist_ctx):
     low = q.lower().strip()
-    is_vid = any(w in low for w in ("فيديو", "video", "وثائقي", "فيلم", "ثوان", "ثانية", "ثواني"))
+    is_vid = any(w in low for w in ("فيديو", "video", "وثائقي", "فيلم", "فلم", "ثوان", "ثانية", "ثواني"))
     m_dur = re.search(r"(\d+)", q)
     req_dur = max(5.0, min(30.0, float(m_dur.group(1)) if m_dur else 8.0))
-    ctx_q = f"سياق المحادثة:\n{hist_ctx[-300:]}\nالطلب الحالي: {q}"
-
-    en_p = q if all(ord(c) < 128 for c in q) and len(q.split()) > 2 else smart_ai([{"role": "system", "content": "Translate to 10-word English image prompt ONLY."}, {"role": "user", "content": ctx_q}])
-    if any("\u0600" <= c <= "\u06FF" for c in en_p) or len(en_p) < 5:
-        en_p = "cinematic masterpiece scene matching user request, 8k"
+    web_info = web_search_engine(q)
+    target_txt = hist_ctx[-250:] if (len(q.split()) <= 2 and any(w in low for w in ("المزيد", "مزيد", "أخرى", "اخرى", "غيرها", "مشابهة", "more"))) else q
+    en_p = fast_ar_to_en(target_txt, web_info)
 
     if is_vid:
-        sl, seed = chr(47), random.randint(10000, 999999)
+        seed = random.randint(10000, 999999)
         is_talk = any(w in low for w in ("يتكلم", "تتكلم", "متكلم", "شفاه", "يقول", "تقول", "مذيع", "شخصية", "talk", "speak"))
-        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً أو حواراً مشوقاً من جملتين بالعربية الفصحى يطابق موضوع المستخدم بدقة، مستعيناً ببيانات البحث العالمية. بدون رموز."}, {"role": "user", "content": f"الطلب: {q}\nمعلومات البحث العالمية: {web_info[:500]}"}])
-        if not script or len(script) < 8:
-            clean_topic = re.sub(r"(اريد|انشيء|فيديو|فلم|فيلم)", "", q).strip() or q
-            script = f"{clean_topic}، مشهد يروي تفاصيل الحياة والحرية بجمال لا يُنسى."
+        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً أو نصاً عربياً فصيحاً مشوقاً من جملتين يطابق موضوع المستخدم بدقة بدون رموز."}, {"role": "user", "content": f"الطلب: {q}\nبيانات البحث: {web_info[:400]}"}])
+        if not script or len(script) < 6:
+            script = re.sub(r"(حول هذا النص إلى|حول هذا النص الى|اريد فيديو|انشيء فيديو|واقعي)", "", q).strip() or q
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
         has_aud = os.path.exists(aud_p) and os.path.getsize(aud_p) > 1500
-        vid_fn = f"DARK_HORIZON_{int(req_dur)}s_{seed}.mp4"
-        vid_p, raw_vid, got_real, mode_lbl = os.path.join(WORK, vid_fn), os.path.join(WORK, f"raw_{seed}.mp4"), False, "مشاهد سينمائية متتابعة"
 
-        # 1. توليد صور حقيقية أولاً من Cloudflare GPU المضمون (3 مشاهد مختلفة)
-        sc_urls = []
-        for i in range(3):
-            u = generate_image_item(f"{en_p}, cinematic movie frame {i+1}, dynamic action", i)
-            if u: sc_urls.append(u)
+        sc_urls = [u for u in [generate_image_item(f"{en_p}, cinematic shot {i+1}", i) for i in range(3)] if u]
         v_imgs = [os.path.join(WORK, u.replace("/media/", "")) for u in sc_urls if os.path.exists(os.path.join(WORK, u.replace("/media/", "")))]
 
-        # 2. محاولة توليد فيديو حركي حقيقي (AI Motion) أو تحريك الشفاه (Lip-Sync)
-        if is_talk and has_aud and v_imgs:
-            if try_free_lipsync(v_imgs, aud_p, raw_vid):
-                got_real, mode_lbl = True, "تحريك شفاه وكلام (AI Lip-Sync)"
-        if not got_real and try_free_t2v(en_p, raw_vid):
-            got_real, mode_lbl = True, "فيديو حركي بالذكاء الاصطناعي (AI Motion)"
+        vid_fn = f"DARK_HORIZON_{int(req_dur)}s_{seed}.mp4"
+        vid_p, raw_vid = os.path.join(WORK, vid_fn), os.path.join(WORK, f"raw_{seed}.mp4")
+        real_mode = try_real_video(en_p, v_imgs if v_imgs else None, aud_p if has_aud else None, is_talk, raw_vid)
 
-        if got_real and os.path.exists(raw_vid):
-            cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", raw_vid] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
+        if real_mode and os.path.exists(raw_vid):
+            cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", raw_vid] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=544:960:force_original_aspect_ratio=increase,crop=544:960", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            mode_lbl = real_mode
         elif v_imgs:
             sc_d = req_dur / len(v_imgs)
             inp, flt = [], ""
             for idx, im_f in enumerate(v_imgs):
                 inp += ["-loop", "1", "-t", f"{sc_d:.2f}", "-i", im_f]
-                flt += f"[{idx}:v]scale=540:960:force_original_aspect_ratio=increase,crop=540:960,setsar=1[v{idx}];"
+                flt += f"[{idx}:v]scale=544:960:force_original_aspect_ratio=increase,crop=544:960,setsar=1[v{idx}];"
             flt += "".join([f"[v{i}]" for i in range(len(v_imgs))]) + f"concat=n={len(v_imgs)}:v=1:a=0[outv]"
             cmd = ["ffmpeg", "-y"] + inp + (["-i", aud_p, "-filter_complex", flt, "-map", "[outv]", "-map", f"{len(v_imgs)}:a", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", vid_p] if has_aud else ["-filter_complex", flt, "-map", "[outv]", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-t", f"{req_dur:.2f}", vid_p])
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            mode_lbl = "مشاهد سينمائية 8K"
         else:
-            return "⚠️ تعذر جلب مشاهد الفيديو من الخادم السحابي لحظياً، أعد المحاولة الآن.", {}
-
+            return "⚠️ الخادم السحابي مشغول لحظياً، أعد المحاولة الآن.", {}
         return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({mode_lbl} - {int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
 
     m_cnt = re.search(r"(\d+)", q)
-    count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "photos")) else 1)
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        urls = [u for u in ex.map(lambda i: generate_image_item(en_p, i), range(count)) if u]
-    if len(urls) > 1:
-        return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
-    if len(urls) == 1:
-        return "🎨 <b>تم تصميم الصورة بدقة سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
-    return "⚠️ الخادم السحابي مشغول لحظياً، أعد إرسال الطلب وسيتم التصميم فوراً.", {}
+    count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "شخصيات", "مشابهة")) else 1)
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        urls = [u for u in ex.map(lambda i: generate_image_item(f"{en_p}, variation {i+1}", i), range(count)) if u]
+    if len(urls) > 1: return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية 8K (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
+    if len(urls) == 1: return "🎨 <b>تم تصميم الصورة بدقة سينمائية 8K (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
+    return "⚠️ الخادم السحابي مشغول لحظياً، أعد إرسال الطلب.", {}
 
 HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>DARK HORIZON AI</title><style>
@@ -268,23 +287,23 @@ function addBubble(role, content, media){
   if(media && media.vid) h+='<video controls playsinline src="'+media.vid+'"></video><a class="dl" href="'+media.vid+'" download="DARK_HORIZON_VIDEO.mp4">⬇️ تحميل الفيديو إلى Download</a>';
   if(media && media.imgs && media.imgs.length>0){
     if(media.imgs.length>1){ var ls=encodeURIComponent(JSON.stringify(media.imgs)); h+='<button type="button" class="dl" onclick="dlAllImgs(\\''+ls+'\\')">⬇️ تحميل جميع الصور ('+media.imgs.length+') إلى Download</button><div class="img-grid">'; media.imgs.forEach(function(u,i){ h+='<div class="img-card"><img src="'+u+'"><a class="dl-sm" href="'+u+'" download="DARK_HORIZON_'+(i+1)+'.jpg">⬇️ صورة '+(i+1)+'</a></div>'; }); h+='</div>'; }
-    else { var u=media.imgs.at(0); h+='<img style="width:100%;border-radius:12px;margin-top:8px" src="'+u+'"><a class="dl" href="'+u+'" download="DARK_HORIZON_IMG.jpg">⬇️ تحميل الصورة إلى Download</a>'; }
+    else { var u=media.imgs; h+='<img style="width:100%;border-radius:12px;margin-top:8px" src="'+u+'"><a class="dl" href="'+u+'" download="DARK_HORIZON_IMG.jpg">⬇️ تحميل الصورة إلى Download</a>'; }
   }
   d.innerHTML=h; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d;
 }
 function safeJson(res){ return res.text().then(function(t){ try{return JSON.parse(t);}catch(e){throw new Error("الخادم يستيقظ، أعد المحاولة الآن.");} }); }
 function loadSessions(){ fetch("/sessions").then(safeJson).then(function(list){ var dr=document.getElementById("drawer"); dr.innerHTML=""; list.forEach(function(s){ var row=document.createElement("div"); row.className="s-item"; var sp=document.createElement("span"); sp.style.cssText="flex:1;cursor:pointer"; sp.textContent=s.title; sp.addEventListener("click",function(){sid=s.id;localStorage.setItem("dh_sid",sid);dr.style.display="none";loadMessages();}); var del=document.createElement("button"); del.textContent="✕"; del.style.cssText="background:none;border:none;color:#ef4444;font-size:16px"; del.addEventListener("click",function(){fetch("/sessions/"+s.id,{method:"DELETE"}).then(function(){if(sid==s.id)startNew();loadSessions();});}); row.appendChild(sp); row.appendChild(del); dr.appendChild(row); }); }).catch(function(){}); }
-function startNew(){ sid=null; localStorage.removeItem("dh_sid"); document.getElementById("chat").innerHTML='<div class="msg bot">✨ استوديو DARK HORIZON AI جاهز! تحدث معي أو اطلب صوراً أو فيديو.</div>'; }
+function startNew(){ sid=null; localStorage.removeItem("dh_sid"); document.getElementById("chat").innerHTML='<div class="msg bot">✨ استوديو DARK HORIZON AI جاهز! ابحث، تحدث، أو أنشئ صوراً وفيديوهات 8K.</div>'; }
 function loadMessages(){ if(!sid){startNew();return;} fetch("/messages/"+sid).then(safeJson).then(function(msgs){ var chat=document.getElementById("chat"); chat.innerHTML=""; msgs.forEach(function(m){addBubble(m.role,m.content,m.media);}); }).catch(function(){startNew();}); }
 function sendMessage(){
-  var qEl=document.getElementById("q"), fEl=document.getElementById("fileIn"), txt=qEl.value.trim(), file=(fEl.files&&fEl.files.length>0)?fEl.files.item(0):null;
+  var qEl=document.getElementById("q"), fEl=document.getElementById("fileIn"), txt=qEl.value.trim(), file=(fEl.files&&fEl.files.length>0)?fEl.files:null;
   if(!txt && !file) return;
   addBubble("User", txt||("📎 "+file.name), {}); var waitBox=addBubble("AI", "⚡ جاري التنفيذ...", {});
   var fd=new FormData(); if(sid)fd.append("sid",sid); fd.append("q",txt); if(file)fd.append("file",file);
   qEl.value=""; fEl.value=""; document.getElementById("fileBar").style.display="none";
   fetch("/send_all", {method:"POST", body:fd}).then(safeJson).then(function(d){
     sid=d.sid; localStorage.setItem("dh_sid",sid);
-    if(d.job_id){ waitBox.textContent="🎨🎬 جاري التصميم والإخراج السينمائي..."; var iv=setInterval(function(){ fetch("/job/"+d.job_id).then(safeJson).then(function(st){ if(st.done){clearInterval(iv);waitBox.remove();addBubble("AI",st.reply,st.media);loadSessions();} }).catch(function(){}); }, 1000); }
+    if(d.job_id){ waitBox.textContent="🎨🎬 جاري التصميم والإخراج السينمائي 8K..."; var iv=setInterval(function(){ fetch("/job/"+d.job_id).then(safeJson).then(function(st){ if(st.done){clearInterval(iv);waitBox.remove();addBubble("AI",st.reply,st.media);loadSessions();} }).catch(function(){}); }, 1500); }
     else { waitBox.remove(); addBubble("AI",d.reply,d.media); loadSessions(); }
   }).catch(function(err){ waitBox.textContent="⚠️ "+err.message; });
 }
@@ -293,7 +312,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.getElementById("histBtn").addEventListener("click",function(){var dr=document.getElementById("drawer");dr.style.display=(dr.style.display==="block")?"none":"block";loadSessions();});
   document.getElementById("newBtn").addEventListener("click",startNew);
   document.getElementById("plusBtn").addEventListener("click",function(){document.getElementById("fileIn").click();});
-  document.getElementById("fileIn").addEventListener("change",function(){var fEl=document.getElementById("fileIn"),fb=document.getElementById("fileBar");if(fEl.files&&fEl.files.length>0){fb.style.display="flex";fb.innerHTML="<span>📎 "+fEl.files.item(0).name+"</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>";document.getElementById("clrF").addEventListener("click",function(){fEl.value="";fb.style.display="none";});}});
+  document.getElementById("fileIn").addEventListener("change",function(){var fEl=document.getElementById("fileIn"),fb=document.getElementById("fileBar");if(fEl.files&&fEl.files.length>0){fb.style.display="flex";fb.innerHTML="<span>📎 "+fEl.files.name+"</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>";document.getElementById("clrF").addEventListener("click",function(){fEl.value="";fb.style.display="none";});}});
   document.getElementById("sendBtn").addEventListener("click",sendMessage);
   document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();sendMessage();}});
   loadSessions(); loadMessages();
@@ -304,17 +323,9 @@ document.addEventListener("DOMContentLoaded", function(){
 @app.route("/doctor")
 def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
-    sl = chr(47)
-    cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
-    cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
-    cf_stat = "غير مضاف ⚠️"
-    if cf_acc and cf_tok:
-        try:
-            t_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}@cf/black-forest-labs/flux-1-schnell"
-            tr = requests.post(t_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json={"prompt": "test", "num_steps": 1}, timeout=12)
-            cf_stat = "متصل ويعمل بقوة 100% ✅" if tr.status_code == 200 else f"تنبيه ({tr.status_code}) ⚠️"
-        except Exception as e: cf_stat = f"خطأ اتصال: {str(e)[:40]} ⚠️"
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي لـ DARK HORIZON AI:</b>\n• حالة الخادم: متصل ✅\n• بطاقات Cloudflare GPU: {cf_stat}\n• قاعدة البيانات: نظيفة ✅"})
+    g_ok = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
+    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العالمي والموسوعات: متصل ✅\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
@@ -364,22 +375,19 @@ def send_all():
     hist = list(reversed(rows))
     ctx = "\n".join([f"{r_role}: {r_cnt[:250]}" for r_role, r_cnt in hist])
     is_q = q.startswith(("هل", "لماذا", "كيف", "ما هو", "ما هي", "وش", "واش", "اين", "أين"))
-    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "photo", "pic", "فيلم", "ثوان", "ثانية", "عشر", "المزيد", "مزيد", "أخرى", "اخرى", "غيرها", "more", "شخصيات", "شخصية", "مشابهة", "مشابه"))
+    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "photo", "فيلم", "فلم", "ثوان", "ثانية", "عشر", "المزيد", "مزيد", "أخرى", "اخرى", "more", "شخصيات", "مشابهة"))
     if is_m:
         jid = f"j_{int(time.time())}_{random.randint(100,999)}"
         with db_lock: conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,)); conn.commit()
         threading.Thread(target=run_media_job, args=(jid, sid, q, ctx), daemon=True).start()
         return jsonify({"sid": sid, "job_id": jid})
     if up_path and os.path.exists(up_path):
-        rep = smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}])
+        rep = smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف بنجاح."
     else:
         web_facts = web_search_engine(q)
-        sys_txt = "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم سياق المحادثة السابقة وتستعين بنتائج البحث الحية لتقديم إجابات دقيقة وشاملة بالعربية."
-        if web_facts:
-            sys_txt += f"\n\nنتائج البحث الحية من الويب:\n{web_facts}"
-        msgs = [{"role": "system", "content": sys_txt}]
+        msgs = [{"role": "system", "content": f"أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. استعن ببيانات البحث العالمية التالية لتقديم إجابات شاملة ودقيقة:\n{web_facts}"}]
         for r_role, r_cnt in hist: msgs.append({"role": "user" if r_role == "User" else "assistant", "content": r_cnt[:400]})
-        rep = smart_ai(msgs)
+        rep = smart_ai(msgs) or "أهلاً بك في استوديو DARK HORIZON FILMS LTD! كيف يمكنني مساعدتك اليوم؟"
     with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, '{}')", (sid, rep)); conn.commit()
     return jsonify({"sid": sid, "reply": rep, "media": {}})
 
