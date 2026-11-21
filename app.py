@@ -24,6 +24,43 @@ def get_keys(prefix):
         if v and v not in out: out.append(v)
     return out
 
+
+def web_search_engine(query):
+    sl = chr(47)
+    clean_q = re.sub(r"^(ابحث عن|بحث عن|معلومات عن|من هو|من هي|search for|who is)\s+", "", query.strip(), flags=re.I)
+    results = []
+    # أ. البحث الفوري عبر DuckDuckGo Instant Answer API
+    try:
+        ddg_url = f"https:{sl}{sl}://duckduckgo.com{sl}"
+        r = requests.get(ddg_url, params={"q": clean_q, "format": "json", "no_html": 1}, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("AbstractText"):
+                results.append(data["AbstractText"])
+            for t in data.get("RelatedTopics", [])[:3]:
+                if isinstance(t, dict) and t.get("Text"):
+                    results.append(t["Text"])
+    except Exception:
+        pass
+
+    # ب. البحث في موسوعة ويكيبيديا العربية ثم الإنجليزية
+    for lang in ("ar", "en"):
+        try:
+            w_url = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
+            wr = requests.get(w_url, params={"action": "query", "list": "search", "srsearch": clean_q, "format": "json", "srlimit": 2}, headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=10).json()
+            hits = wr.get("query", {}).get("search", [])
+            if hits:
+                title = hits[0]["title"]
+                sr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}api{sl}rest_v1{sl}page{sl}summary{sl}" + urllib.parse.quote(title), headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=10).json()
+                ext = sr.get("extract", "")
+                if ext:
+                    results.append(f"[{title}]: {ext}")
+                    break
+        except Exception:
+            continue
+
+    return "\n".join(results)[:1500]
+
 def smart_ai(messages):
     sl = chr(47)
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
@@ -328,7 +365,7 @@ def send_all():
     hist = list(reversed(rows))
     ctx = "\n".join([f"{r_role}: {r_cnt[:250]}" for r_role, r_cnt in hist])
     is_q = q.startswith(("هل", "لماذا", "كيف", "ما هو", "ما هي", "وش", "واش", "اين", "أين"))
-    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "photo", "pic", "فيلم", "ثوان", "ثانية", "عشر", "المزيد", "مزيد", "أخرى", "اخرى", "غيرها", "more"))
+    is_m = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "photo", "pic", "فيلم", "ثوان", "ثانية", "عشر", "المزيد", "مزيد", "أخرى", "اخرى", "غيرها", "more", "شخصيات", "شخصية", "مشابهة", "مشابه"))
     if is_m:
         jid = f"j_{int(time.time())}_{random.randint(100,999)}"
         with db_lock: conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,)); conn.commit()
@@ -337,7 +374,11 @@ def send_all():
     if up_path and os.path.exists(up_path):
         rep = smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}])
     else:
-        msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم سياق المحادثة السابقة وترد بذكاء وسرعة."}]
+        web_facts = web_search_engine(q)
+        sys_txt = "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم سياق المحادثة السابقة وتستعين بنتائج البحث الحية لتقديم إجابات دقيقة وشاملة بالعربية."
+        if web_facts:
+            sys_txt += f"\n\nنتائج البحث الحية من الويب:\n{web_facts}"
+        msgs = [{"role": "system", "content": sys_txt}]
         for r_role, r_cnt in hist: msgs.append({"role": "user" if r_role == "User" else "assistant", "content": r_cnt[:400]})
         rep = smart_ai(msgs)
     with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, '{}')", (sid, rep)); conn.commit()
