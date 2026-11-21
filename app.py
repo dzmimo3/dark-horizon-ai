@@ -77,9 +77,9 @@ def generate_image_item(en_prompt, idx=0):
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "steps": 4} if "flux" in c_mdl else {"prompt": full_p[:240]}
+            payload = {"prompt": full_p[:240], "num_steps": 4} if "flux" in c_mdl else {"prompt": full_p[:240]}
             try:
-                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}"}, json=payload, timeout=18)
+                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=22)
                 if cr.status_code == 200:
                     if "application/json" in cr.headers.get("Content-Type", ""):
                         b64_img = cr.json().get("result", {}).get("image", "")
@@ -107,8 +107,9 @@ def generate_image_item(en_prompt, idx=0):
         except Exception:
             continue
 
-    # 3. Pollinations السريع للصورة الأولى فقط بدون تعليق
-    if idx == 0:
+    # 3. التوليد التلقائي المضمون لجميع الصور بفاصل ذكي
+    time.sleep(idx * 2.5)
+    if True:
         p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
         try:
             r = requests.get(p_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
@@ -236,7 +237,8 @@ document.addEventListener("DOMContentLoaded", function(){
 def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
     hf_ok = len(get_keys("HF_TOKEN")) > 0
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي لـ DARK HORIZON AI:</b>\n• حالة الخادم: متصل ويعمل بكفاءة ✅\n• توكن Hugging Face: {'مفعّل ✅' if hf_ok else 'غير مضاف (يعمل بالوضع المفتوح) ⚠️'}\n• قاعدة البيانات والذاكرة: تم التنظيف الذاتي بنجاح ✅"})
+    cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
+    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي لـ DARK HORIZON AI:</b>\n• حالة الخادم: متصل ويعمل بكفاءة ✅\n• بطاقات Cloudflare GPU: {'مفعّلة (10,000 طلب/يوم) ✅' if cf_ok else 'غير مفعّلة ⚠️'}\n• توكن Hugging Face: {'مفعّل ✅' if hf_ok else 'وضع تلقائي مفتوح ✅'}\n• قاعدة البيانات والذاكرة: تم التنظيف الذاتي بنجاح ✅"})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
