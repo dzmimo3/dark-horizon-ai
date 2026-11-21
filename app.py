@@ -42,6 +42,29 @@ def web_search_engine(query):
             pass
     return ""
 
+
+def analyze_file_with_gemini(fpath, user_q):
+    sl = chr(47)
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not g_key or not os.path.exists(fpath):
+        return ""
+    ext = os.path.splitext(fpath).lower()
+    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf", ".txt": "text/plain"}
+    mime = mime_map.get(ext, "application/octet-stream")
+    try:
+        b64_data = base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
+        g_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}gemini-2.5-flash:generateContent?key={g_key}"
+        payload = {"contents": [{"parts": [{"text": user_q or "حلل هذا الملف أو الصورة بالتفصيل باللغة العربية."}, {"inline_data": {"mime_type": mime, "data": b64_data}}]}]}
+        gr = requests.post(g_url, json=payload, timeout=25)
+        if gr.status_code == 200:
+            c0 = next(iter(gr.json().get("candidates", [])), {})
+            p0 = next(iter(c0.get("content", {}).get("parts", [])), {})
+            if p0.get("text"):
+                return p0["text"].strip()
+    except Exception:
+        pass
+    return ""
+
 def smart_ai(messages):
     sl = chr(47)
     g_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -286,7 +309,7 @@ def generate_media(q, hist_ctx):
     return "⚠️ الخادم السحابي مشغول لحظياً، أعد إرسال الطلب.", {}
 
 HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>DARK HORIZON AI</title><style>
+<title>DARK HORIZON AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#131314"><style>
 *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
 body{background:#131314;color:#e3e3e3;margin:0;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 header{padding:12px 16px;background:#131314;display:flex;justify-content:space-between;align-items:center;z-index:10}
@@ -369,6 +392,27 @@ function saveLocalBackup(sId, title, role, content) {
   } catch (e) {}
 }
 
+
+function copyBubbleText(btn) {
+  var box = btn.parentElement.parentElement;
+  var txt = box.innerText.replace("📋 نسخ", "").replace("🔊 استماع", "").trim();
+  navigator.clipboard.writeText(txt).then(function() {
+    btn.textContent = "✅ تم النسخ";
+    setTimeout(function() { btn.textContent = "📋 نسخ"; }, 1500);
+  });
+}
+
+function speakBubbleText(btn) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  var box = btn.parentElement.parentElement;
+  var txt = box.innerText.replace("📋 نسخ", "").replace("🔊 استماع", "").trim();
+  var u = new SpeechSynthesisUtterance(txt);
+  u.lang = "ar-SA";
+  window.speechSynthesis.speak(u);
+}
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(function(){}); }
+
 function openLightbox(src, idx) {
   var lb = document.getElementById("lightbox"), im = document.getElementById("lbImg"), dl = document.getElementById("lbDl");
   if (!lb || !im || !dl) return;
@@ -392,7 +436,10 @@ function dlAllImgs(btn) {
 function addBubble(role, content, media) {
   var chat = document.getElementById("chat"), d = document.createElement("div");
   d.className = "msg " + (role === "User" ? "user" : "bot");
-  var h = content || "";
+  var h = (content || "").replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+  if (role === "AI" && content && content.indexOf("جاري") === -1) {
+    h += '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" onclick="copyBubbleText(this)" style="background:#1e1f20;color:#c4c7c5;border:1px solid rgba(255,255,255,0.12);padding:4px 10px;border-radius:12px;font-size:12px;cursor:pointer">📋 نسخ</button><button type="button" onclick="speakBubbleText(this)" style="background:#1e1f20;color:#a8c7fa;border:1px solid rgba(168,199,250,0.2);padding:4px 10px;border-radius:12px;font-size:12px;cursor:pointer">🔊 استماع</button></div>';
+  }
   if (media && media.vid) {
     h += '<div class="img-wrap"><video controls playsinline src="' + media.vid + '"></video><a class="glass-dl" href="' + media.vid + '" download="DARK_HORIZON_VIDEO.mp4">⬇️</a></div>';
   }
@@ -495,6 +542,23 @@ def doctor():
 def media(fn): return send_from_directory(WORK, fn)
 @app.route("/")
 def index(): return render_template_string(HTML)
+
+@app.route("/manifest.json")
+def pwa_manifest():
+    return jsonify({
+        "name": "DARK HORIZON AI",
+        "short_name": "DARK HORIZON",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#131314",
+        "theme_color": "#131314",
+        "icons": [{"src": "https://flaticon.com", "sizes": "512x512", "type": "image/png"}]
+    })
+
+@app.route("/sw.js")
+def pwa_sw():
+    return Response("self.addEventListener('fetch', function(e){});", mimetype="application/javascript")
+
 @app.route("/health")
 def health(): return jsonify({"status": "ok"})
 @app.route("/sessions")
@@ -546,7 +610,7 @@ def send_all():
         threading.Thread(target=run_media_job, args=(jid, sid, q, ctx), daemon=True).start()
         return jsonify({"sid": sid, "job_id": jid})
     if up_path and os.path.exists(up_path):
-        rep = smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف بنجاح."
+        rep = analyze_file_with_gemini(up_path, q) or smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف بنجاح."
     else:
         web_facts = web_search_engine(q)
         msgs = [{"role": "system", "content": f"أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. استعن ببيانات البحث العالمية التالية لتقديم إجابات شاملة ودقيقة:\n{web_facts}"}]
