@@ -70,11 +70,10 @@ def smart_ai(messages):
             prompt_txt = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-6:]])
             gr = requests.post(g_url, json={"contents": [{"parts": [{"text": prompt_txt}]}]}, timeout=15)
             if gr.status_code == 200:
-                cands = gr.json().get("candidates", [])
-                if cands:
-                    parts = cands.get("content", {}).get("parts", [])
-                    if parts and parts.get("text"):
-                        return parts["text"].strip()
+                c0 = next(iter(gr.json().get("candidates", [])), {})
+                p0 = next(iter(c0.get("content", {}).get("parts", [])), {})
+                if p0.get("text"):
+                    return p0["text"].strip()
         except Exception:
             pass
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
@@ -87,7 +86,7 @@ def smart_ai(messages):
                 res = r.json().get("result", {}).get("response", "").strip()
                 if res: return res
         except Exception: pass
-    return "أهلاً بك في DARK HORIZON AI! كيف يمكنني مساعدتك الآن؟"
+    return ""
 
 def apply_brand_logo(fpath):
     logo_p = "brand_logo.png" if os.path.exists("brand_logo.png") else os.path.join(WORK, "brand_logo.png")
@@ -154,115 +153,24 @@ async def make_voice(txt, mp3):
     await edge_tts.Communicate(clean, v, rate="+2%").save(mp3)
 
 
-def fast_ar_to_en(text):
+def fast_ar_to_en(text, web_facts=""):
     sl = chr(47)
-    clean = re.sub(r"(اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip()
-    if not clean: clean = text
+    clean = re.sub(r"(اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip() or text
+    # استخدام Gemini 2.5 مع بيانات البحث العالمية لصياغة وصف بصري دقيق 100% للموضوع
+    ai_p = smart_ai([{"role": "system", "content": "You are a visual director. Translate and expand the user's exact subject into a vivid 18-word English visual prompt for AI image/video generation. Output ONLY English words."}, {"role": "user", "content": f"Subject: {clean}\nGlobal Knowledge: {web_facts[:400]}"}])
+    if ai_p and not any("\u0600" <= c <= "\u06FF" for c in ai_p) and len(ai_p) > 4:
+        return f"{ai_p}, sharp focus, 8k photorealistic"
     try:
         u = f"https:{sl}{sl}://googleapis.com{sl}translate_a{sl}single"
         r = requests.get(u, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": clean[:250]}, timeout=8)
         if r.status_code == 200:
-            en = "".join([seg for seg in r.json() if seg]).strip()
+            segs = next(iter(r.json()), [])
+            en = "".join([s for s in segs if isinstance(s, list) and s]).strip()
             if en and len(en) > 2:
-                return f"{en}, cinematic lighting, ultra realistic, 8k"
+                return f"{en}, sharp focus, cinematic lighting, 8k"
     except Exception:
         pass
-    return f"cinematic epic historical scene, {random.randint(1,999)}, 8k"
-
-
-
-def try_free_t2v(prompt_en, out_mp4):
-    sl = chr(47)
-    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if g_key:
-        try:
-            veo_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}veo-2.0-generate-001:predictLongRunning?key={g_key}"
-            vr = requests.post(veo_url, json={"instances": [{"prompt": f"{prompt_en}, realistic live action motion, crisp 8k focus"}], "parameters": {"aspectRatio": "9:16"}}, timeout=20)
-            if vr.status_code == 200:
-                op_name = vr.json().get("name", "")
-                if op_name:
-                    for _ in range(12):
-                        time.sleep(4)
-                        op_r = requests.get(f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}{op_name}?key={g_key}", timeout=15).json()
-                        if op_r.get("done"):
-                            v_uri = op_r.get("response", {}).get("generateVideoResponse", {}).get("generatedSamples", [{}]).get("video", {}).get("uri", "")
-                            if v_uri:
-                                v_bytes = requests.get(f"{v_uri}&key={g_key}", timeout=30).content
-                                if len(v_bytes) > 25000:
-                                    open(out_mp4, "wb").write(v_bytes)
-                                    return True
-                            break
-        except Exception:
-            pass
-
-    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if g_key:
-        try:
-            veo_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}veo-2.0-generate-001:predictLongRunning?key={g_key}"
-            vr = requests.post(veo_url, json={"instances": [{"prompt": f"{prompt_en}, realistic live action motion, crisp 8k focus"}], "parameters": {"aspectRatio": "9:16"}}, timeout=20)
-            if vr.status_code == 200:
-                op_name = vr.json().get("name", "")
-                if op_name:
-                    for _ in range(12):
-                        time.sleep(4)
-                        op_r = requests.get(f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}{op_name}?key={g_key}", timeout=15).json()
-                        if op_r.get("done"):
-                            v_uri = op_r.get("response", {}).get("generateVideoResponse", {}).get("generatedSamples", [{}]).get("video", {}).get("uri", "")
-                            if v_uri:
-                                v_bytes = requests.get(f"{v_uri}&key={g_key}", timeout=30).content
-                                if len(v_bytes) > 25000:
-                                    open(out_mp4, "wb").write(v_bytes)
-                                    return True
-                            break
-        except Exception:
-            pass
-
-    hf_tok = (get_keys("HF_TOKEN") or [None])
-    # 1. الاتصال المباشر بأقوى مساحات الفيديو الحركي الواقعي المجانية (NVIDIA H100/A100)
-    spaces = ("Wan-AI/Wan2.1", "Lightricks/LTX-Video-Distilled", "THUDM/CogVideoX-5B-Space")
-    try:
-        from gradio_client import Client
-        for sp in spaces:
-            try:
-                client = Client(sp, hf_token=hf_tok)
-                res = client.predict(prompt=f"{prompt_en}, photorealistic live action film, smooth natural movement, 24fps", api_name="/predict")
-                v_path = res.get("video", "") if isinstance(res, dict) else (res if isinstance(res, list) else str(res))
-                if v_path and os.path.exists(v_path) and os.path.getsize(v_path) > 25000:
-                    shutil.copy2(v_path, out_mp4)
-                    return True
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    # 2. واجهة Hugging Face Inference السريعة كمسار ثانٍ
-    for hft in get_keys("HF_TOKEN"):
-        for vm in ("Lightricks/LTX-Video", "Wan-AI/Wan2.1-T2V-14B"):
-            try:
-                vr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{vm}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{prompt_en}, live action realistic film, dynamic motion"}, timeout=55)
-                if vr.status_code == 200 and len(vr.content) > 25000:
-                    open(out_mp4, "wb").write(vr.content)
-                    return True
-            except Exception:
-                continue
-    return False
-
-def try_free_lipsync(img_path, aud_path, out_mp4):
-    sl = chr(47)
-    for sp in (f"https:{sl}{sl}vinthony-sadtalker.hf.space", f"https:{sl}{sl}fffiloni-sadtalker.hf.space"):
-        try:
-            ib = "data:image/jpeg;base64," + base64.b64encode(open(img_path, "rb").read()).decode()
-            ab = "data:audio/mp3;base64," + base64.b64encode(open(aud_path, "rb").read()).decode()
-            r = requests.post(f"{sp}{sl}api{sl}predict", json={"data": [ib, ab, "crop", True, True, 1, 256, 0]}, timeout=45)
-            if r.status_code == 200 and r.json().get("data"):
-                v0 = r.json()["data"]
-                vi = v0.get("name", "") if isinstance(v0, dict) else str(v0)
-                vr = requests.get(vi if vi.startswith("http") else f"{sp}{sl}file={vi}", timeout=30)
-                if vr.status_code == 200 and len(vr.content) > 25000:
-                    open(out_mp4, "wb").write(vr.content)
-                    return True
-        except Exception: continue
-    return False
+    return f"photorealistic cinematic scene of {clean}, 8k"
 
 def generate_media(q, hist_ctx):
     low = q.lower().strip()
@@ -273,15 +181,15 @@ def generate_media(q, hist_ctx):
 
     en_p = q if all(ord(c) < 128 for c in q) and len(q.split()) > 2 else smart_ai([{"role": "system", "content": "Translate to 10-word English image prompt ONLY."}, {"role": "user", "content": ctx_q}])
     if any("\u0600" <= c <= "\u06FF" for c in en_p) or len(en_p) < 5:
-        en_p = "cinematic Arabian stallion running in golden desert dunes at sunset, 8k"
+        en_p = "cinematic masterpiece scene matching user request, 8k"
 
     if is_vid:
         sl, seed = chr(47), random.randint(10000, 999999)
         is_talk = any(w in low for w in ("يتكلم", "تتكلم", "متكلم", "شفاه", "يقول", "تقول", "مذيع", "شخصية", "talk", "speak"))
-        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً مشوقاً من جملتين بالعربية الفصحى يصف موضوع الطلب بدقة بدون رموز."}, {"role": "user", "content": q}])
-        if "أهلاً بك" in script or len(script) < 10:
-            clean_topic = re.sub(r"(اريد|انشيء|فيديو|فلم|فيلم)", "", q).strip() or "التاريخ والحضارة"
-            script = f"في عمق {clean_topic}، تتجلى أعظم المشاهد والبطولات التي خلدتها الذاكرة عبر العصور."
+        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً أو حواراً مشوقاً من جملتين بالعربية الفصحى يطابق موضوع المستخدم بدقة، مستعيناً ببيانات البحث العالمية. بدون رموز."}, {"role": "user", "content": f"الطلب: {q}\nمعلومات البحث العالمية: {web_info[:500]}"}])
+        if not script or len(script) < 8:
+            clean_topic = re.sub(r"(اريد|انشيء|فيديو|فلم|فيلم)", "", q).strip() or q
+            script = f"{clean_topic}، مشهد يروي تفاصيل الحياة والحرية بجمال لا يُنسى."
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
