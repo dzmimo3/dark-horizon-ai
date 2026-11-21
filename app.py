@@ -70,12 +70,12 @@ def generate_image_item(en_prompt, idx=0):
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        time.sleep(idx * 0.5)
+        
         cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 4} if "flux" in c_mdl else {"prompt": full_p[:240]}
+            payload = {"prompt": full_p[:240], "num_steps": 2} if "flux" in c_mdl else {"prompt": full_p[:240]}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
@@ -91,8 +91,8 @@ def generate_image_item(en_prompt, idx=0):
                         return f"/media/{fn}"
             except Exception: continue
 
-    for attempt in range(2):
-        if idx > 0 or attempt > 0: time.sleep(10.5)
+    for attempt in range(1):
+        if idx > 0 or attempt > 0: time.sleep(0.5)
         p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed + attempt}"
         try:
             r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Studio-{idx}-{attempt})"}, timeout=25)
@@ -115,7 +115,7 @@ def generate_media(q, hist_ctx):
     req_dur = max(5.0, min(30.0, float(m_dur.group(1)) if m_dur else 8.0))
     ctx_q = f"سياق المحادثة:\n{hist_ctx[-300:]}\nالطلب الحالي: {q}"
 
-    en_p = smart_ai([{"role": "system", "content": "Output ONLY a 15-word ultra-realistic English image prompt based on context. No Arabic."}, {"role": "user", "content": ctx_q}])
+    en_p = q if all(ord(c) < 128 for c in q) and len(q.split()) > 2 else smart_ai([{"role": "system", "content": "Translate to 10-word English image prompt ONLY."}, {"role": "user", "content": ctx_q}])
     if any("\u0600" <= c <= "\u06FF" for c in en_p) or len(en_p) < 5:
         en_p = "cinematic Arabian stallion running in golden desert dunes at sunset, 8k"
 
@@ -141,7 +141,7 @@ def generate_media(q, hist_ctx):
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "photos")) else 1)
-    with ThreadPoolExecutor(max_workers=3) as ex:
+    with ThreadPoolExecutor(max_workers=4) as ex:
         urls = [u for u in ex.map(lambda i: generate_image_item(en_p, i), range(count)) if u]
     if len(urls) > 1:
         return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
@@ -195,7 +195,7 @@ function sendMessage(){
   qEl.value=""; fEl.value=""; document.getElementById("fileBar").style.display="none";
   fetch("/send_all", {method:"POST", body:fd}).then(safeJson).then(function(d){
     sid=d.sid; localStorage.setItem("dh_sid",sid);
-    if(d.job_id){ waitBox.textContent="🎨🎬 جاري التصميم والإخراج السينمائي..."; var iv=setInterval(function(){ fetch("/job/"+d.job_id).then(safeJson).then(function(st){ if(st.done){clearInterval(iv);waitBox.remove();addBubble("AI",st.reply,st.media);loadSessions();} }).catch(function(){}); }, 3000); }
+    if(d.job_id){ waitBox.textContent="🎨🎬 جاري التصميم والإخراج السينمائي..."; var iv=setInterval(function(){ fetch("/job/"+d.job_id).then(safeJson).then(function(st){ if(st.done){clearInterval(iv);waitBox.remove();addBubble("AI",st.reply,st.media);loadSessions();} }).catch(function(){}); }, 1000); }
     else { waitBox.remove(); addBubble("AI",d.reply,d.media); loadSessions(); }
   }).catch(function(err){ waitBox.textContent="⚠️ "+err.message; });
 }
