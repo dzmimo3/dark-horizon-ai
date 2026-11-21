@@ -133,7 +133,7 @@ def generate_media(q, hist_ctx):
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (10 if any(w in low for w in ("صور", "عشر", "10", "معرض", "تشكيلة")) else 1)
     if count > 1:
         angles = [f"{en_p}, cinematic angle {i+1}, dramatic lighting" for i in range(count)]
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        with ThreadPoolExecutor(max_workers=2) as ex:
             fns = list(ex.map(build_image, angles))
         return f"🎨 <b>تم تصميم {len(fns)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": fns}
     return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": [build_image(en_p)]}
@@ -288,52 +288,38 @@ def check_job(jid):
 def send_all():
     sid, q, f_obj, up_path = request.form.get("sid"), request.form.get("q", "").strip(), request.files.get("file"), None
     if f_obj and f_obj.filename:
-        up_path = os.path.join(WORK, f"up_{int(time.time())}_{f_obj.filename}"); f_obj.save(up_path)
+        up_path = os.path.join(WORK, f"up_{int(time.time())}_{f_obj.filename}")
+        f_obj.save(up_path)
         if not q: q = f"📎 {f_obj.filename}"
     with db_lock:
         sid = conn.execute("INSERT INTO sessions (title) VALUES (?)", (q[:28],)).lastrowid if (not sid or sid in ("null", "undefined", "")) else int(sid)
-        conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'User', ?, '{}')", (sid, q)); conn.commit()
+        conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'User', ?, '{}')", (sid, q))
+        conn.commit()
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id DESC LIMIT 8", (sid,)).fetchall()
     hist = list(reversed(rows))
-    ctx = "\n".join([f"{r[0]}: {r[1][:250]}" for r in hist])
-    if up_path and os.path.exists(up_path):
-        import base64
-        ext = os.path.splitext(up_path)[1].lower()
-        if ext in (".jpg", ".jpeg", ".png", ".webp"):
-            b64 = base64.b64encode(open(up_path, "rb").read()).decode("utf-8")
-            vis_msg = [{"role": "user", "content": [{"type": "text", "text": q or "صف هذه الصورة بالتفصيل بالعربية."}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}]
-            url_g = "https://" + "://groq.com"
-            rep = ""
-            for k in get_keys("GROQ_API_KEY"):
-                try:
-                    rv = requests.post(url_g, headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"}, json={"model": "meta-llama/llama-4-scout-17b-16e-instruct", "messages": vis_msg}, timeout=20)
-                    if rv.status_code == 200:
-                        rep = rv.json()["choices"][0]["message"]["content"].strip()
-                        break
-                except Exception: continue
-            if not rep: rep = "تم استلام الصورة بنجاح."
-        else:
-            rep = ask_groq_sync([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف."
-        m_obj = {}
-    elif any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "فيلم", "ثوان", "ثانية")):
-        jid = f"j_{int(time.time())}_{random.randint(100,999)}"
-        JOBS[jid] = {"done": False}
-        threading.Thread(target=run_video_job, args=(jid, sid, q, ctx), daemon=True).start()
-        return jsonify({"sid": sid, "job_id": jid})
-    elif any(w in q.lower() for w in ("صورة", "صور", "ارسم", "image", "draw", "عشر")):
+    ctx = "\n".join([f"{r}: {r[:250]}" for r in hist])
+
+    is_media = not up_path and not q.startswith("هل") and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "صورة", "صور", "ارسم", "image", "draw", "فيلم", "ثوان", "ثانية", "عشر"))
+    if is_media:
         jid = f"j_{int(time.time())}_{random.randint(100,999)}"
         with db_lock:
             conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,))
             conn.commit()
         threading.Thread(target=run_video_job, args=(jid, sid, q, ctx), daemon=True).start()
         return jsonify({"sid": sid, "job_id": jid})
+
+    if up_path and os.path.exists(up_path):
+        rep = ask_groq([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف بنجاح."
     else:
-        msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
-        for r in hist: msgs.append({"role": "user" if r[0] == "User" else "assistant", "content": r[1][:400]})
-        rep = ask_groq_sync(msgs) or "أهلاً بك في استوديو DARK HORIZON FILMS LTD! كيف يمكنني مساعدتك اليوم؟"
-        m_obj = {}
-    with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps(m_obj))); conn.commit()
-    return jsonify({"sid": sid, "reply": rep, "media": m_obj})
+        msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم الدارجة الجزائرية وجميع اللغات وترد بذكاء وسرعة مثل ChatGPT."}]
+        for r in hist:
+            msgs.append({"role": "user" if r == "User" else "assistant", "content": r[:400]})
+        rep = ask_groq(msgs) or "أهلاً بك في استوديو DARK HORIZON FILMS LTD! كيف يمكنني مساعدتك اليوم؟"
+
+    with db_lock:
+        conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, '{}')", (sid, rep))
+        conn.commit()
+    return jsonify({"sid": sid, "reply": rep, "media": {}})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
