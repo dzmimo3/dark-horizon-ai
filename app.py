@@ -168,6 +168,16 @@ def fast_ar_to_en(text, web_facts=""):
 
 def try_real_video(prompt_en, img_path, aud_path, is_talk, out_mp4):
     sl = chr(47)
+    colab_url = os.environ.get("COLAB_GPU_URL", "").strip().rstrip("/")
+    if colab_url:
+        try:
+            cr = requests.post(f"{colab_url}/render_gpu", data={"prompt": prompt_en, "script": prompt_en, "duration": 25}, timeout=120)
+            if cr.status_code == 200 and len(cr.content) > 25000:
+                open(out_mp4, "wb").write(cr.content)
+                return "NVIDIA T4 GPU Live Action"
+        except Exception:
+            pass
+
     g_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if g_key:
         try:
