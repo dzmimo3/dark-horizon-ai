@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os, io, json, time, base64, random, urllib.parse, sqlite3, threading, subprocess, requests
 from flask import Flask, request, jsonify, render_template_string
 
@@ -26,7 +27,7 @@ def search_web(q):
     tv = get_key("TAVILY_API_KEY")
     if not tv: return ""
     try:
-        r = requests.post("https://tavily.com", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=10)
+        r = requests.post("https://tavily.com", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=4)
         if r.status_code == 200:
             d = r.json()
             res = [d["answer"]] if d.get("answer") else []
@@ -38,72 +39,65 @@ def search_web(q):
 
 def ai_brain(messages, img_b64=None):
     sys_msg = (
-        "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير يتحدث بأسلوب إنساني ذكي وطبيعي جداً مثل ChatGPT. "
-        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة. "
-        "كن متفاعلاً، مفيداً، وواضحاً في إجاباتك ولا تستخدم ردوداً آلية جامدة."
+        "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير وفائق السرعة تتحدث بأسلوب إنساني ذكي ومباشر مثل ChatGPT. "
+        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة."
     )
-    clean = []
-    for m in messages:
-        if m.get("content"):
-            clean.append({"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content"))})
-    if not clean:
-        clean = [{"role": "user", "content": "مرحباً"}]
+    clean = [{"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content", ""))} for m in messages if m.get("content")]
+    if not clean: clean = [{"role": "user", "content": "مرحباً"}]
 
-    # 1. Google Gemini 2.5 Flash (يدعم النصوص وتحليل الصور والملفات المرفقة)
-    gk = get_key("GEMINI_API_KEY")
-    if gk:
-        try:
-            g_contents = []
-            for idx, m in enumerate(clean[-6:]):
-                parts = [{"text": m["content"]}]
-                if img_b64 and idx == len(clean[-6:]) - 1 and m["role"] == "user":
-                    raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
-                    parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
-                g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
-            r = requests.post(f"https://googleapis.com{gk}",
-                              json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=18)
-            if r.status_code == 200:
-                c0 = first(r.json().get("candidates", []), {})
-                p0 = first(c0.get("content", {}).get("parts", []), {})
-                txt = p0.get("text", "").strip()
-                if txt: return txt
-        except Exception: pass
+    def call_groq():
+        gq = get_key("GROQ_API_KEY")
+        if not gq: return ""
+        r = requests.post("https://groq.com",
+                          headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
+                          json={"model": "llama-3.1-8b-instant", "messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=5)
+        if r.status_code == 200:
+            return first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+        return ""
 
-    # 2. Groq Llama 3.3 70B (سرعة استجابة فائقة)
-    gq = get_key("GROQ_API_KEY")
-    if gq:
-        try:
-            r = requests.post("https://groq.com",
-                              headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
-                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=12)
-            if r.status_code == 200:
-                c0 = first(r.json().get("choices", []), {})
-                txt = c0.get("message", {}).get("content", "").strip()
-                if txt: return txt
-        except Exception: pass
+    def call_gemini():
+        gk = get_key("GEMINI_API_KEY")
+        if not gk: return ""
+        g_contents = []
+        for idx, m in enumerate(clean[-4:]):
+            parts = [{"text": m["content"]}]
+            if img_b64 and idx == len(clean[-4:]) - 1 and m["role"] == "user":
+                raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
+                parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
+            g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
+        r = requests.post(f"https://googleapis.com{gk}",
+                          json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=8)
+        if r.status_code == 200:
+            c0 = first(r.json().get("candidates", []), {})
+            return first(c0.get("content", {}).get("parts", []), {}).get("text", "").strip()
+        return ""
 
-    # 3. OpenRouter Free (مئات النماذج المجانية)
-    ork = get_key("OPENROUTER_API_KEY")
-    if ork:
-        try:
-            r = requests.post("https://openrouter.ai",
-                              headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
-                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=15)
-            if r.status_code == 200:
-                c0 = first(r.json().get("choices", []), {})
-                txt = c0.get("message", {}).get("content", "").strip()
-                if txt: return txt
-        except Exception: pass
-
-    # 4. Pollinations Open Text Endpoint (مفتوح ومباشر بدون مفتاح)
-    try:
-        r = requests.post("https://pollinations.ai",
-                          json={"messages": [{"role": "system", "content": sys_msg}] + clean[-4:], "model": "openai"}, timeout=15)
-        if r.status_code == 200 and len(r.text.strip()) > 1:
+    def call_poll():
+        pk = get_key("POLLINATIONS_API_KEY")
+        url = "https://pollinations.ai" if pk else "https://pollinations.ai"
+        hdrs = {"Authorization": f"Bearer {pk}", "Content-Type": "application/json"} if pk else {"Content-Type": "application/json"}
+        r = requests.post(url, headers=hdrs, json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=7)
+        if r.status_code == 200:
+            if pk: return first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
             return r.text.strip()
-    except Exception: pass
+        return ""
 
-    return "أهلاً بك! أنا معك الآن، كيف أستطيع مساعدتك؟"
+    # إذا وُجدت صورة مرفقة نرسلها لـ Gemini Vision مباشرة، وإلا نطلق السباق المتوازي بين المحركات الثلاثة
+    if img_b64:
+        res = call_gemini()
+        if res: return res
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        futs = [ex.submit(call_groq), ex.submit(call_gemini), ex.submit(call_poll)]
+        for f in as_completed(futs, timeout=9):
+            try:
+                ans = f.result()
+                if ans and len(ans) > 1:
+                    return ans
+            except Exception:
+                continue
+
+    return "أهلاً بك! كيف يمكنني مساعدتك؟"
 
 def create_image(prompt):
     en_p = ai_brain([{"role": "user", "content": f"Translate into a modest, ultra-realistic 8K RAW DSLR English photo prompt (ONLY English words, no intro): {prompt}"}])
