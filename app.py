@@ -115,7 +115,7 @@ def generate_image_item(en_prompt, idx=0):
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
@@ -135,15 +135,16 @@ def generate_image_item(en_prompt, idx=0):
                         return f"/media/{fn}"
             except Exception: continue
 
-    p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=544&height=960&nologo=true&seed={seed}"
+    time.sleep(idx * 1.5)
+    p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:180]) + f"?width=544&height=960&nologo=true&seed={seed}"
     try:
-        r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Studio-{idx})"}, timeout=25)
+        r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Client-{idx}-{seed})"}, timeout=22)
         if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content:
             open(fpath, "wb").write(r.content)
             apply_brand_logo(fpath)
             return f"/media/{fn}"
     except Exception: pass
-    return None
+    return p_url
 
 async def make_voice(txt, mp3):
     clean = re.sub(r"\s+", " ", re.sub(r"[^\w\s\u0600-\u06FF]", " ", txt)).strip()
@@ -164,7 +165,9 @@ def fast_ar_to_en(text, web_facts=""):
         pass
     if not en:
         en = clean
-    if any(w in text for w in ("رجال", "رجل", "شاب", "شباب", "فارس", "فرسان")):
+    if any(w in text for w in ("بنات", "بنت", "نساء", "امرأة", "فتاة", "فتيات")):
+        en = f"beautiful young women, female portrait, {en}, sharp DSLR photography, detailed skin texture, 8k"
+    elif any(w in text for w in ("رجال", "رجل", "شاب", "شباب", "فارس", "فرسان")):
         en = f"handsome adult men, masculine male portrait, {en}, sharp DSLR photography, detailed skin texture, 8k"
     else:
         en = f"{en}, sharp DSLR photography, hyperrealistic, detailed texture, 8k"
