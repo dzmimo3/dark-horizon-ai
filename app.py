@@ -27,22 +27,20 @@ def smart_ai(messages):
     sl = chr(47)
     hf_url = f"https:{sl}{sl}router.huggingface.co{sl}v1{sl}chat{sl}completions"
     for hft in get_keys("HF_TOKEN"):
-        for mdl in ("Qwen/Qwen2.5-72B-Instruct", "meta-llama/Llama-3.3-70B-Instruct"):
-            try:
-                r = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}", "Content-Type": "application/json"}, json={"model": mdl, "messages": messages, "max_tokens": 700}, timeout=15)
-                if r.status_code == 200:
-                    first = next(iter(r.json().get("choices", [])), {})
-                    txt = first.get("message", {}).get("content", "").strip()
-                    if txt: return txt
-            except Exception: continue
+        try:
+            r = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}", "Content-Type": "application/json"}, json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": messages, "max_tokens": 600}, timeout=15)
+            if r.status_code == 200:
+                first = next(iter(r.json().get("choices", [])), {})
+                txt = first.get("message", {}).get("content", "").strip()
+                if txt: return txt
+        except Exception: continue
     try:
-        r2 = requests.post(f"https:{sl}{sl}text.pollinations.ai{sl}openai", json={"model": "openai", "messages": messages}, timeout=15)
-        if r2.status_code == 200:
-            first = next(iter(r2.json().get("choices", [])), {})
-            txt = first.get("message", {}).get("content", "").strip()
-            if txt: return txt
+        conv = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-5:]])[:550]
+        r2 = requests.get(f"https:{sl}{sl}text.pollinations.ai{sl}" + urllib.parse.quote(conv), params={"seed": random.randint(1, 99999)}, timeout=15)
+        if r2.status_code == 200 and "Free limit" not in r2.text and "404" not in r2.text and len(r2.text.strip()) > 2:
+            return r2.text.strip()
     except Exception: pass
-    return "أهلاً بك! أنا معك وأفهمك تماماً، كيف يمكنني مساعدتك الآن؟"
+    return "أعتذر، واجهت ضغطاً لحظياً في الخادم. أعد صياغة طلبك وسأنفذه فوراً."
 
 def build_image(en_prompt):
     sl = chr(47)
@@ -107,7 +105,17 @@ def generate_media(q, hist_ctx):
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (6 if any(w in low for w in ("صور", "عشر", "معرض", "تشكيلة")) else 1)
-    fns = [f for f in [build_image(f"{en_p}, cinematic shot variation {i+1}" if count > 1 else en_p) for i in range(count)] if os.path.exists(os.path.join(WORK, f))]
+    sl = chr(47)
+    fns = []
+    for i in range(count):
+        vp = f"{en_p}, cinematic shot variation {i+1}" if count > 1 else en_p
+        fn = build_image(vp)
+        fp = os.path.join(WORK, fn)
+        if os.path.exists(fp) and os.path.getsize(fp) > 2000:
+            fns.append(fn)
+        else:
+            sd = random.randint(1000, 999999)
+            fns.append(f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(vp[:200]) + f"?width=540&height=960&nologo=true&seed={sd}")
     if len(fns) > 1: return f"🎨 <b>تم تصميم {len(fns)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": fns}
     return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": fns}
 
