@@ -455,6 +455,7 @@ function sendMessage() {
 loadSessions(); loadMessages();
 </script></body></html>"""
 
+
 @app.route("/doctor")
 def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
