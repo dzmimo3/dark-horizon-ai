@@ -358,7 +358,7 @@ header{padding:12px 16px;background:#131314;display:flex;justify-content:space-b
     <input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none" onchange="onFilePicked()">
     <button type="button" id="plusBtn" class="c-btn" onclick="document.getElementById('fileIn').click()">+</button>
     <input type="text" id="q" placeholder="اسأل DARK HORIZON AI..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendMessage();}">
-    <button type="button" id="micBtn" class="c-btn" style="background:transparent;color:#c4c7c5;font-size:18px" onclick="startVoiceInput()" title="تحدث صوتياً">🎤</button><button type="button" id="sendBtn" class="c-btn" onclick="sendMessage()">↑</button>
+    <button type="button" id="sendBtn" class="c-btn" onclick="sendMessage()">↑</button>
   </div>
 </div>
 <script>
