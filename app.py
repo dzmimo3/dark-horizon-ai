@@ -27,24 +27,20 @@ def get_keys(prefix):
 def web_search_engine(query):
     sl = chr(47)
     clean_q = re.sub(r"^(ابحث عن|بحث عن|معلومات عن|من هو|من هي|حول|فيديو|صور|صورة|اريد|انشيء|أنشئ)\s+", "", query.strip(), flags=re.I)
-    results = []
-    try:
-        r = requests.get(f"https:{sl}{sl}://duckduckgo.com{sl}", params={"q": clean_q, "format": "json", "no_html": 1}, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
-        if r.status_code == 200 and r.json().get("AbstractText"):
-            results.append(r.json()["AbstractText"])
-    except Exception: pass
-    for lang in ("ar", "en"):
+    tv_key = os.environ.get("TAVILY_API_KEY", "").strip()
+    if tv_key:
         try:
-            wr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php", params={"action": "query", "list": "search", "srsearch": clean_q, "format": "json", "srlimit": 2}, headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=8).json()
-            hits = wr.get("query", {}).get("search", [])
-            if hits:
-                title = hits["title"]
-                sr = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}api{sl}rest_v1{sl}page{sl}summary{sl}" + urllib.parse.quote(title), headers={"User-Agent": "DarkHorizonBot/1.0"}, timeout=8).json()
-                if sr.get("extract"):
-                    results.append(f"[{title}]: {sr['extract']}")
-                    break
-        except Exception: continue
-    return "\n".join(results)[:1200]
+            tr = requests.post(f"https:{sl}{sl}://tavily.com{sl}search", json={"api_key": tv_key, "query": clean_q, "search_depth": "advanced", "include_answer": True, "max_results": 4}, timeout=12)
+            if tr.status_code == 200:
+                td = tr.json()
+                ans = td.get("answer", "")
+                snippets = [f"- {r.get('title','')}: {r.get('content','')[:220]}" for r in td.get("results", [])]
+                full_tv = f"{ans}\n" + "\n".join(snippets)
+                if len(full_tv.strip()) > 15:
+                    return full_tv[:1600]
+        except Exception:
+            pass
+    return ""
 
 def smart_ai(messages):
     sl = chr(47)
@@ -357,7 +353,7 @@ def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
     g_ok = bool(os.environ.get("GEMINI_API_KEY", "").strip())
     cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العالمي والموسوعات: متصل ✅\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
+    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العميق (Tavily AI): {'مفعّل ✅' if os.environ.get('TAVILY_API_KEY') else 'غير مضاف ⚠️'}\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
