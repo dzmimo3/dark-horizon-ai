@@ -135,16 +135,26 @@ def generate_image_item(en_prompt, idx=0):
                         return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
             except Exception: continue
 
+    for hft in get_keys("HF_TOKEN"):
+        for h_mdl in ("black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0"):
+            try:
+                hr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{h_mdl}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=22)
+                if hr.status_code == 200 and len(hr.content) > 15000:
+                    open(fpath, "wb").write(hr.content)
+                    apply_brand_logo(fpath)
+                    return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
+            except Exception: continue
+
     time.sleep(idx * 1.5)
     p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:180]) + f"?width=544&height=960&nologo=true&seed={seed}"
     try:
         r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Client-{idx}-{seed})"}, timeout=22)
-        if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content:
+        if r.status_code == 200 and len(r.content) > 22000 and b"Free limit" not in r.content:
             open(fpath, "wb").write(r.content)
             apply_brand_logo(fpath)
             return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
     except Exception: pass
-    return p_url
+    return None
 
 async def make_voice(txt, mp3):
     clean = re.sub(r"\s+", " ", re.sub(r"[^\w\s\u0600-\u06FF]", " ", txt)).strip()
