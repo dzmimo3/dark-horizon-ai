@@ -43,6 +43,23 @@ def smart_ai(messages):
     except Exception: pass
     return "أنا معك وأتابع سياق حديثنا بالكامل! وضّح لي طلبك وسأنفذه فوراً."
 
+def apply_brand_logo(fpath):
+    logo_p = "brand_logo.png" if os.path.exists("brand_logo.png") else os.path.join(WORK, "brand_logo.png")
+    if os.path.exists(logo_p) and os.path.exists(fpath):
+        try:
+            from PIL import Image
+            base = Image.open(fpath).convert("RGBA")
+            w, h = base.size
+            base = base.crop((0, 0, w, int(h * 0.94)))
+            lg = Image.open(logo_p).convert("RGBA")
+            lw = max(80, int(base.width * 0.24))
+            lh = int(lg.height * (lw / lg.width))
+            lg = lg.resize((lw, lh))
+            base.paste(lg, (base.width - lw - 14, base.height - lh - 14), lg)
+            base.convert("RGB").save(fpath, quality=90)
+        except Exception:
+            pass
+
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
@@ -50,26 +67,40 @@ def generate_image_item(en_prompt, idx=0):
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
-    models = ("black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0")
-    for hft in get_keys("HF_TOKEN"):
-        for mdl in models:
+    hf_models = (
+        "black-forest-labs/FLUX.1-schnell",
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        "runwayml/stable-diffusion-v1-5",
+        "ByteDance/SDXL-Lightning"
+    )
+    hf_keys = get_keys("HF_TOKEN")
+    if hf_keys:
+        ordered_models = [hf_models[(idx + i) % len(hf_models)] for i in range(len(hf_models))]
+        for mdl in ordered_models:
+            hft = hf_keys[idx % len(hf_keys)]
             hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{mdl}"
             try:
                 hr = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=25)
                 if hr.status_code == 200 and len(hr.content) > 5000:
                     open(fpath, "wb").write(hr.content)
+                    apply_brand_logo(fpath)
                     return f"/media/{fn}"
-            except Exception: continue
+            except Exception:
+                continue
 
-    direct_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
+    time.sleep((idx % 3) * 1.8)
+    poll_models = ("flux", "turbo", "flux-realism", "any-dark")
+    p_mdl = poll_models[idx % len(poll_models)]
+    p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&model={p_mdl}&seed={seed}"
     try:
-        r = requests.get(direct_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25)
-        if r.status_code == 200 and len(r.content) > 2000:
+        r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Mobile-{idx})"}, timeout=25)
+        if r.status_code == 200 and len(r.content) > 5000 and b"Free limit" not in r.content:
             open(fpath, "wb").write(r.content)
+            apply_brand_logo(fpath)
             return f"/media/{fn}"
     except Exception:
         pass
-    return direct_url
+    return p_url
 
 async def make_voice(txt, mp3):
     clean = re.sub(r"\s+", " ", re.sub(r"[^\w\s\u0600-\u06FF]", " ", txt)).strip()
