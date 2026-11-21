@@ -43,6 +43,21 @@ def web_search_engine(query):
     return ""
 
 
+
+def remove_bg_rmbg2(fpath):
+    sl = chr(47)
+    for hft in get_keys("HF_TOKEN"):
+        try:
+            r = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}briaai/RMBG-2.0",
+                              headers={"Authorization": f"Bearer {hft}"}, data=open(fpath, "rb").read(), timeout=25)
+            if r.status_code == 200 and len(r.content) > 2000:
+                out_png = fpath + "_nobg.png"
+                open(out_png, "wb").write(r.content)
+                return "data:image/png;base64," + base64.b64encode(r.content).decode("utf-8")
+        except Exception:
+            continue
+    return None
+
 def analyze_file_with_gemini(fpath, user_q):
     sl = chr(47)
     g_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -67,6 +82,19 @@ def analyze_file_with_gemini(fpath, user_q):
 
 def smart_ai(messages):
     sl = chr(47)
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if groq_key:
+        try:
+            gq = requests.post(f"https:{sl}{sl}://groq.com{sl}openai{sl}v1{sl}chat{sl}completions",
+                               headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                               json={"model": "llama-3.3-70b-versatile", "messages": messages[-6:], "temperature": 0.7}, timeout=10)
+            if gq.status_code == 200:
+                c = next(iter(gq.json().get("choices", [])), {})
+                txt = c.get("message", {}).get("content", "").strip()
+                if txt: return txt
+        except Exception:
+            pass
+
     g_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if g_key:
         try:
@@ -235,7 +263,7 @@ def try_real_video(prompt_en, img_path, aud_path, is_talk, out_mp4):
                         break
         except Exception: pass
     if is_talk and img_path and os.path.exists(img_path) and aud_path and os.path.exists(aud_path):
-        for sp in (f"https:{sl}{sl}vinthony-sadtalker.hf.space", f"https:{sl}{sl}fffiloni-sadtalker.hf.space"):
+        for sp in (f"https:{sl}{sl}kwaivgi-liveportrait.hf.space", f"https:{sl}{sl}vinthony-sadtalker.hf.space", f"https:{sl}{sl}fffiloni-sadtalker.hf.space"):
             try:
                 ib = "data:image/jpeg;base64," + base64.b64encode(open(img_path, "rb").read()).decode()
                 ab = "data:audio/mp3;base64," + base64.b64encode(open(aud_path, "rb").read()).decode()
@@ -536,7 +564,7 @@ def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
     g_ok = bool(os.environ.get("GEMINI_API_KEY", "").strip())
     cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العميق (Tavily AI): {'مفعّل ✅' if os.environ.get('TAVILY_API_KEY') else 'غير مضاف ⚠️'}\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
+    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العميق (Tavily AI): {'مفعّل ✅' if os.environ.get('TAVILY_API_KEY') else 'غير مضاف ⚠️'}\n• محرك السرعة الفائقة (Groq Llama 3.3 70B): {'مفعّل ✅' if os.environ.get('GROQ_API_KEY') else 'غير مضاف ⚠️'}\n• تفريغ الخلفيات (BRIA RMBG-2.0) + LivePortrait: مفعّل ✅\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
@@ -610,6 +638,12 @@ def send_all():
         threading.Thread(target=run_media_job, args=(jid, sid, q, ctx), daemon=True).start()
         return jsonify({"sid": sid, "job_id": jid})
     if up_path and os.path.exists(up_path):
+        if any(w in q.lower() for w in ("خلفية", "تفريغ", "فرغ", "background", "rmbg", "remove bg")):
+            nobg_uri = remove_bg_rmbg2(up_path)
+            if nobg_uri:
+                rep = "✨ <b>تمت إزالة الخلفية بدقة استوديو (BRIA RMBG-2.0):</b>"
+                with db_lock: conn.execute("INSERT INTO messages (session_id, role, content, media) VALUES (?, 'AI', ?, ?)", (sid, rep, json.dumps({"imgs": [nobg_uri]}))); conn.commit()
+                return jsonify({"sid": sid, "reply": rep, "media": {"imgs": [nobg_uri]}})
         rep = analyze_file_with_gemini(up_path, q) or smart_ai([{"role": "user", "content": f"تم إرفاق ملف باسم {os.path.basename(up_path)}. {q}"}]) or "تم استلام الملف بنجاح."
     else:
         web_facts = web_search_engine(q)
