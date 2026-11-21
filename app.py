@@ -564,7 +564,21 @@ def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
     g_ok = bool(os.environ.get("GEMINI_API_KEY", "").strip())
     cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي الشامل لـ DARK HORIZON AI:</b>\n• خوادم Google (Gemini 2.5 + Imagen 3 + Veo 2): {'مفعّلة ✅' if g_ok else 'غير مضافة ⚠️'}\n• بطاقات Cloudflare GPU (8K): {'مفعّلة ✅' if cf_ok else 'غير مضافة ⚠️'}\n• محرك البحث العميق (Tavily AI): {'مفعّل ✅' if os.environ.get('TAVILY_API_KEY') else 'غير مضاف ⚠️'}\n• محرك السرعة الفائقة (Groq Llama 3.3 70B): {'مفعّل ✅' if os.environ.get('GROQ_API_KEY') else 'غير مضاف ⚠️'}\n• تفريغ الخلفيات (BRIA RMBG-2.0) + LivePortrait: مفعّل ✅\n• قاعدة البيانات والذاكرة: نظيفة ✅"})
+    tv_ok = bool(os.environ.get("TAVILY_API_KEY", "").strip())
+    hf_ok = bool(os.environ.get("HF_TOKEN", "").strip())
+    gq_ok = bool(os.environ.get("GROQ_API_KEY", "").strip())
+    cb_ok = bool(os.environ.get("COLAB_GPU_URL", "").strip())
+    rep = (
+        "🩺 <b>تقرير التفعيل الشامل لاستوديو DARK HORIZON AI:</b>\n"
+        f"• Google (Gemini 2.5 Vision + Imagen 3 + Veo 2): {'مفعّل ✅' if g_ok else 'غير مضاف ⚠️'}\n"
+        f"• Cloudflare GPU (FLUX.1 + SDXL 8K): {'مفعّل ✅' if cf_ok else 'غير مضاف ⚠️'}\n"
+        f"• محرك البحث العميق (Tavily AI): {'مفعّل ✅' if tv_ok else 'غير مضاف ⚠️'}\n"
+        f"• حزمة Hugging Face (RMBG-2.0 + Upscaler + LivePortrait): {'مفعّل ✅' if hf_ok else 'غير مضاف ⚠️'}\n"
+        f"• محرك السرعة الفائقة (Groq Llama 3.3 70B): {'مفعّل ✅' if gq_ok else 'جاهز (أضف GROQ_API_KEY) ⚡'}\n"
+        f"• خادم الفيديو الحركي (NVIDIA T4 GPU): {'مربوط ✅' if cb_ok else 'احتياطي ⚠️'}\n"
+        "• تطبيق الهاتف (PWA) + النسخ + القراءة الصوتية: مفعّل ✅"
+    )
+    return jsonify({"report": rep})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
