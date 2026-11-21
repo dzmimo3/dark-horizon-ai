@@ -193,40 +193,33 @@ def generate_media(q, hist_ctx):
     if is_vid:
         sl, seed = chr(47), random.randint(10000, 999999)
         is_talk = any(w in low for w in ("يتكلم", "تتكلم", "متكلم", "شفاه", "يقول", "تقول", "مذيع", "شخصية", "talk", "speak"))
-        script = smart_ai([{"role": "system", "content": "اكتب نصاً عربياً فصيحاً قصيراً ومؤثراً من جملتين بدون رموز."}, {"role": "user", "content": q}])
+        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً مشوقاً من جملتين بالعربية الفصحى يصف موضوع الطلب بدقة بدون رموز."}, {"role": "user", "content": q}])
         if "أهلاً بك" in script or len(script) < 10:
-            script = "في عمق التاريخ والحضارة، تُروى أعظم القصص التي صاغها الأبطال بعزيمة لا تلين."
+            script = f"مشاهد سينمائية حية تأخذنا في رحلة بصرية مذهلة حول {q}."
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
         has_aud = os.path.exists(aud_p) and os.path.getsize(aud_p) > 1500
         vid_fn = f"DARK_HORIZON_{int(req_dur)}s_{seed}.mp4"
-        vid_p, raw_vid, got_real, mode_lbl = os.path.join(WORK, vid_fn), os.path.join(WORK, f"raw_{seed}.mp4"), False, "مونتاج سينمائي"
+        vid_p, raw_vid, got_real, mode_lbl = os.path.join(WORK, vid_fn), os.path.join(WORK, f"raw_{seed}.mp4"), False, "مشاهد سينمائية متتابعة"
 
-        if is_talk and has_aud:
-            im_ref = generate_image_item(f"{en_p}, close up portrait facing camera, studio lighting", 0)
-            if im_ref and im_ref.startswith("/media/") and try_free_lipsync(os.path.join(WORK, im_ref.replace("/media/", "")), aud_p, raw_vid):
+        # 1. توليد صور حقيقية أولاً من Cloudflare GPU المضمون (3 مشاهد مختلفة)
+        sc_urls = []
+        for i in range(3):
+            u = generate_image_item(f"{en_p}, cinematic movie frame {i+1}, dynamic action", i)
+            if u: sc_urls.append(u)
+        v_imgs = [os.path.join(WORK, u.replace("/media/", "")) for u in sc_urls if os.path.exists(os.path.join(WORK, u.replace("/media/", "")))]
+
+        # 2. إذا طلب شخصية متكلمة وتوفرت صورة: محاولة تحريك الشفاه عبر SadTalker
+        if is_talk and has_aud and v_imgs:
+            if try_free_lipsync(v_imgs, aud_p, raw_vid):
                 got_real, mode_lbl = True, "تحريك شفاه وكلام (AI Lip-Sync)"
-
-        if not got_real:
-            for hft in get_keys("HF_TOKEN"):
-                for vm in ("Wan-AI/Wan2.1-T2V-14B", "Lightricks/LTX-Video", "ali-vilab/text-to-video-ms-1.7b"):
-                    try:
-                        vr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{vm}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{en_p}, smooth realistic cinematic motion, dynamic action, 24fps"}, timeout=50)
-                        if vr.status_code == 200 and len(vr.content) > 25000:
-                            open(raw_vid, "wb").write(vr.content)
-                            got_real, mode_lbl = True, "فيديو حركي حقيقي (AI Motion)"
-                            break
-                    except Exception: continue
-                if got_real: break
 
         if got_real and os.path.exists(raw_vid):
             cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", raw_vid] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            sc_urls = [u for u in [generate_image_item(f"{en_p}, single full frame shot {i+1}", i) for i in range(3)] if u]
-            v_imgs = [os.path.join(WORK, u.replace("/media/", "")) for u in sc_urls if os.path.exists(os.path.join(WORK, u.replace("/media/", "")))]
-            sc_d = req_dur / max(1, len(v_imgs))
+        elif v_imgs:
+            sc_d = req_dur / len(v_imgs)
             inp, flt = [], ""
             for idx, im_f in enumerate(v_imgs):
                 inp += ["-loop", "1", "-t", f"{sc_d:.2f}", "-i", im_f]
@@ -234,6 +227,9 @@ def generate_media(q, hist_ctx):
             flt += "".join([f"[v{i}]" for i in range(len(v_imgs))]) + f"concat=n={len(v_imgs)}:v=1:a=0[outv]"
             cmd = ["ffmpeg", "-y"] + inp + (["-i", aud_p, "-filter_complex", flt, "-map", "[outv]", "-map", f"{len(v_imgs)}:a", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", vid_p] if has_aud else ["-filter_complex", flt, "-map", "[outv]", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-t", f"{req_dur:.2f}", vid_p])
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            return "⚠️ تعذر جلب مشاهد الفيديو من الخادم السحابي لحظياً، أعد المحاولة الآن.", {}
+
         return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({mode_lbl} - {int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
 
     m_cnt = re.search(r"(\d+)", q)
