@@ -290,98 +290,79 @@ HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><
 *{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
 body{background:#131314;color:#e3e3e3;margin:0;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 header{padding:12px 16px;background:#131314;display:flex;justify-content:space-between;align-items:center;z-index:10}
-.h-icon{background:transparent;border:none;color:#c4c7c5;width:40px;height:40px;border-radius:50%;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
+.h-icon{background:transparent;border:none;color:#c4c7c5;width:40px;height:40px;border-radius:50%;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .h-icon:active{background:rgba(255,255,255,0.1)}
-.brand{font-weight:600;font-size:16px;color:#e3e3e3;letter-spacing:.3px;display:flex;align-items:center;gap:6px}
+.brand{font-weight:600;font-size:16px;color:#e3e3e3;display:flex;align-items:center;gap:6px}
 .badge{font-size:11px;background:#1e1f20;color:#a8c7fa;padding:3px 8px;border-radius:12px;border:1px solid rgba(168,199,250,0.2)}
-#drawer{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50}
+#drawer{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:50}
 .drawer-panel{width:270px;max-width:80vw;height:100%;background:#1e1f20;padding:16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-.new-chat-pill{background:#282a2c;color:#e3e3e3;border:none;padding:12px 16px;border-radius:24px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px}
+.new-chat-pill{background:#282a2c;color:#e3e3e3;border:none;padding:12px 16px;border-radius:24px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;cursor:pointer}
 .s-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:20px;font-size:14px;color:#c4c7c5;cursor:pointer}
-.s-item:hover,.s-item:active{background:#282a2c}
 #chat{flex:1;overflow-y:auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:18px;max-width:780px;width:100%;margin:auto}
-.msg{max-width:92%;line-height:1.65;font-size:15.5px;word-wrap:break-word}
+.msg{max-width:92%;line-height:1.65;font-size:15.5px;word-wrap:break-word;white-space:pre-wrap}
 .user{align-self:flex-start;background:#282a2c;color:#e3e3e3;padding:12px 18px;border-radius:22px 22px 4px 22px}
 .bot{align-self:flex-end;background:transparent;color:#e3e3e3;width:100%;padding:4px 2px}
 .img-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .img-wrap{position:relative;margin-top:8px;border-radius:16px;overflow:hidden;background:#1e1f20;cursor:zoom-in}
 .img-wrap img,.img-wrap video{width:100%;display:block;border-radius:16px}
-.glass-dl{position:absolute;top:10px;left:10px;width:36px;height:36px;border-radius:50%;background:rgba(19,19,20,0.75);backdrop-filter:blur(8px);color:#e3e3e3;border:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:15px}
-.dl-pill{display:inline-flex;align-items:center;gap:6px;background:#1e1f20;color:#a8c7fa;border:1px solid rgba(168,199,250,0.25);padding:7px 14px;border-radius:20px;margin-top:8px;font-size:13px;font-weight:500;cursor:pointer}
+.glass-dl{position:absolute;top:10px;left:10px;width:36px;height:36px;border-radius:50%;background:rgba(19,19,20,0.78);color:#e3e3e3;border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:15px}
+.dl-pill{display:inline-flex;align-items:center;gap:6px;background:#1e1f20;color:#a8c7fa;border:1px solid rgba(168,199,250,0.25);padding:7px 14px;border-radius:20px;margin-top:8px;font-size:13px;cursor:pointer}
 .footer{padding:8px 14px 14px;background:#131314}
-.capsule{max-width:780px;margin:auto;background:#1e1f20;border-radius:28px;padding:6px 10px;display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,0.08)}
-.capsule:focus-within{border-color:rgba(168,199,250,0.45);background:#232527}
+.capsule{max-width:780px;margin:auto;background:#1e1f20;border-radius:28px;padding:6px 10px;display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,0.1)}
 #q{flex:1;background:transparent;border:none;color:#e3e3e3;font-size:15.5px;outline:none;padding:8px 6px}
-.c-btn{border:none;width:38px;height:38px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.c-btn{border:none;width:38px;height:38px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 #plusBtn{background:transparent;color:#c4c7c5;font-size:22px}
-#plusBtn:active{background:rgba(255,255,255,0.1)}
 #sendBtn{background:#a8c7fa;color:#062e6f;font-weight:700}
-#sendBtn:active{transform:scale(0.92)}
 #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 #lightbox img{max-width:100%;max-height:82dvh;border-radius:14px;object-fit:contain}
 .lb-bar{display:flex;gap:12px;margin-top:16px}
-.lb-btn{background:#1e1f20;color:#e3e3e3;border:1px solid rgba(255,255,255,0.2);padding:10px 20px;border-radius:24px;text-decoration:none;font-size:14px;font-weight:600;cursor:pointer}
+.lb-btn{background:#1e1f20;color:#e3e3e3;border:1px solid rgba(255,255,255,0.2);padding:10px 20px;border-radius:24px;text-decoration:none;font-size:14px;cursor:pointer}
 </style></head><body>
 <header>
-  <button type="button" id="histBtn" onclick="openDrawer()" class="h-icon" title="المحادثات">☰</button>
+  <button type="button" id="histBtn" class="h-icon" onclick="openDrawer()">☰</button>
   <div class="brand">DARK HORIZON <span class="badge">AI</span></div>
   <div style="display:flex;gap:4px">
-    <button type="button" id="docBtn" onclick="runDoctor()" class="h-icon" title="فحص النظام">🩺</button>
-    <button type="button" id="newBtn" onclick="startNew()" class="h-icon" title="محادثة جديدة">✎</button>
+    <button type="button" id="docBtn" class="h-icon" onclick="runDoctor()">🩺</button>
+    <button type="button" id="newBtn" class="h-icon" onclick="startNew()">✎</button>
   </div>
 </header>
-<div id="drawer" onclick="if(event.target.id==='drawer')this.style.display='none'"><div class="drawer-panel"><button type="button" id="drawerNew" onclick="startNew()" class="new-chat-pill">✎ محادثة جديدة</button><div id="sessList"></div></div></div>
-<div id="lightbox" onclick="if(event.target.id==='lightbox')closeLightbox()"><img id="lbImg" src=""><div class="lb-bar"><a id="lbDl" class="lb-btn" download="DARK_HORIZON_8K.jpg">⬇️ حفظ الصورة</a><button type="button" id="lbClose" onclick="closeLightbox()" class="lb-btn">✕ إغلاق</button></div></div>
-<div id="chat"></div>
+<div id="drawer" onclick="if(event.target.id==='drawer')this.style.display='none'"><div class="drawer-panel"><button type="button" class="new-chat-pill" onclick="startNew()">✎ محادثة جديدة</button><div id="sessList"></div></div></div>
+<div id="lightbox" onclick="if(event.target.id==='lightbox')closeLightbox()"><img id="lbImg" src=""><div class="lb-bar"><a id="lbDl" class="lb-btn" download="DARK_HORIZON_8K.jpg">⬇️ حفظ الصورة</a><button type="button" class="lb-btn" onclick="closeLightbox()">✕ إغلاق</button></div></div>
+<div id="chat"><div class="msg bot">✨ أهلاً بك في <b>DARK HORIZON AI</b>. كيف يمكنني مساعدتك اليوم؟</div></div>
 <div class="footer">
   <div id="fileBar" style="display:none;max-width:780px;margin:0 auto 8px;background:#1e1f20;color:#a8c7fa;padding:6px 14px;border-radius:16px;font-size:13px;justify-content:space-between;align-items:center"></div>
   <div class="capsule">
-    <input type="file" id="fileIn" onchange="onFilePicked()" accept="image/*,.pdf,.txt" style="display:none">
-    <button type="button" id="plusBtn" onclick="document.getElementById('fileIn').click()" class="c-btn">+</button>
-    <input type="text" id="q" onkeydown="if(event.key==='Enter'){event.preventDefault();sendMessage();}" placeholder="اسأل DARK HORIZON AI...">
-    <button type="button" id="sendBtn" onclick="sendMessage()" class="c-btn">↑</button>
+    <input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none" onchange="onFilePicked()">
+    <button type="button" id="plusBtn" class="c-btn" onclick="document.getElementById('fileIn').click()">+</button>
+    <input type="text" id="q" placeholder="اسأل DARK HORIZON AI..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendMessage();}">
+    <button type="button" id="sendBtn" class="c-btn" onclick="sendMessage()">↑</button>
   </div>
 </div>
 <script>
 var sid = localStorage.getItem("dh_sid") || null;
 
 function openLightbox(src, idx) {
-  var lb = document.getElementById("lightbox");
-  var im = document.getElementById("lbImg");
-  var dl = document.getElementById("lbDl");
+  var lb = document.getElementById("lightbox"), im = document.getElementById("lbImg"), dl = document.getElementById("lbDl");
   if (!lb || !im || !dl) return;
-  im.src = src;
-  dl.href = src;
-  dl.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
-  lb.style.display = "flex";
+  im.src = src; dl.href = src; dl.download = "DARK_HORIZON_" + (idx + 1) + ".jpg"; lb.style.display = "flex";
 }
 
-function closeLightbox() {
-  var lb = document.getElementById("lightbox");
-  if (lb) lb.style.display = "none";
-}
+function closeLightbox() { document.getElementById("lightbox").style.display = "none"; }
 
 function dlAllImgs(btn) {
   try {
     var arr = JSON.parse(decodeURIComponent(btn.getAttribute("data-urls")));
-    for (var i = 0; i < arr.length; i++) {
-      (function(u, idx) {
-        setTimeout(function() {
-          var a = document.createElement("a");
-          a.href = u;
-          a.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }, idx * 450);
-      })(arr[i], i);
-    }
+    arr.forEach(function(u, idx) {
+      setTimeout(function() {
+        var a = document.createElement("a"); a.href = u; a.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }, idx * 450);
+    });
   } catch (e) {}
 }
 
 function addBubble(role, content, media) {
-  var chat = document.getElementById("chat");
-  var d = document.createElement("div");
+  var chat = document.getElementById("chat"), d = document.createElement("div");
   d.className = "msg " + (role === "User" ? "user" : "bot");
   var h = content || "";
   if (media && media.vid) {
@@ -391,20 +372,16 @@ function addBubble(role, content, media) {
     if (media.imgs.length > 1) {
       var ls = encodeURIComponent(JSON.stringify(media.imgs));
       h += '<div><button type="button" class="dl-pill" data-urls="' + ls + '" onclick="dlAllImgs(this)">⬇️ حفظ جميع الصور (' + media.imgs.length + ')</button></div><div class="img-grid">';
-      for (var i = 0; i < media.imgs.length; i++) {
-        var u = media.imgs[i];
+      media.imgs.forEach(function(u, i) {
         h += '<div class="img-wrap" style="margin-top:0"><img src="' + u + '" style="aspect-ratio:9/16;object-fit:cover" onclick="openLightbox(this.src,' + i + ')"><a class="glass-dl" href="' + u + '" download="DARK_HORIZON_' + (i + 1) + '.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
-      }
+      });
       h += '</div>';
     } else {
-      var u0 = media.imgs[0];
+      var u0 = media.imgs.item ? media.imgs.item(0) : media.imgs.slice(0, 1).pop();
       h += '<div class="img-wrap"><img src="' + u0 + '" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="' + u0 + '" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
     }
   }
-  d.innerHTML = h;
-  chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
-  return d;
+  d.innerHTML = h; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
 }
 
 function safeJson(res) {
@@ -418,124 +395,65 @@ function runDoctor() {
   fetch("/doctor").then(safeJson).then(function(d) { w.innerHTML = d.report; }).catch(function(e) { w.textContent = "⚠️ " + e.message; });
 }
 
-function openDrawer() {
-  document.getElementById("drawer").style.display = "block";
-  loadSessions();
-}
+function openDrawer() { document.getElementById("drawer").style.display = "block"; loadSessions(); }
 
 function loadSessions() {
   fetch("/sessions").then(safeJson).then(function(list) {
-    var box = document.getElementById("sessList");
-    if (!box) return;
-    box.innerHTML = "";
-    for (var i = 0; i < list.length; i++) {
-      (function(s) {
-        var row = document.createElement("div");
-        row.className = "s-item";
-        var sp = document.createElement("span");
-        sp.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-        sp.textContent = s.title;
-        sp.onclick = function() {
-          sid = s.id;
-          localStorage.setItem("dh_sid", sid);
-          document.getElementById("drawer").style.display = "none";
-          loadMessages();
-        };
-        var del = document.createElement("button");
-        del.textContent = "✕";
-        del.style.cssText = "background:none;border:none;color:#f28b82;font-size:15px;cursor:pointer;padding:0 4px";
-        del.onclick = function(ev) {
-          ev.stopPropagation();
-          fetch("/sessions/" + s.id, { method: "DELETE" }).then(function() {
-            if (sid == s.id) startNew();
-            loadSessions();
-          });
-        };
-        row.appendChild(sp);
-        row.appendChild(del);
-        box.appendChild(row);
-      })(list[i]);
-    }
+    var box = document.getElementById("sessList"); if (!box) return; box.innerHTML = "";
+    list.forEach(function(s) {
+      var row = document.createElement("div"); row.className = "s-item";
+      var sp = document.createElement("span"); sp.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"; sp.textContent = s.title;
+      sp.onclick = function() { sid = s.id; localStorage.setItem("dh_sid", sid); document.getElementById("drawer").style.display = "none"; loadMessages(); };
+      var del = document.createElement("button"); del.textContent = "✕"; del.style.cssText = "background:none;border:none;color:#f28b82;font-size:15px;cursor:pointer";
+      del.onclick = function(ev) { ev.stopPropagation(); fetch("/sessions/" + s.id, { method: "DELETE" }).then(function() { if (sid == s.id) startNew(); loadSessions(); }); };
+      row.appendChild(sp); row.appendChild(del); box.appendChild(row);
+    });
   }).catch(function() {});
 }
 
 function startNew() {
-  sid = null;
-  localStorage.removeItem("dh_sid");
-  document.getElementById("drawer").style.display = "none";
+  sid = null; localStorage.removeItem("dh_sid"); document.getElementById("drawer").style.display = "none";
   document.getElementById("chat").innerHTML = '<div class="msg bot">✨ أهلاً بك في <b>DARK HORIZON AI</b>. كيف يمكنني مساعدتك اليوم؟</div>';
 }
 
 function loadMessages() {
-  if (!sid) { startNew(); return; }
+  if (!sid) return;
   fetch("/messages/" + sid).then(safeJson).then(function(msgs) {
-    if (!msgs || msgs.length === 0) { startNew(); return; }
-    var chat = document.getElementById("chat");
-    chat.innerHTML = "";
-    for (var i = 0; i < msgs.length; i++) { addBubble(msgs[i].role, msgs[i].content, msgs[i].media); }
-  }).catch(function() { startNew(); });
+    if (!msgs || msgs.length === 0) return;
+    var chat = document.getElementById("chat"); chat.innerHTML = "";
+    msgs.forEach(function(m) { addBubble(m.role, m.content, m.media); });
+  }).catch(function() {});
 }
 
 function onFilePicked() {
-  var fEl = document.getElementById("fileIn");
-  var fb = document.getElementById("fileBar");
-  if (fEl.files && fEl.files.length > 0) {
-    fb.style.display = "flex";
-    fb.innerHTML = "<span>📎 " + fEl.files[0].name + "</span><span style='color:#f28b82;font-weight:bold;cursor:pointer' onclick='clearFile()'>✕</span>";
-  }
+  var fEl = document.getElementById("fileIn"), fb = document.getElementById("fileBar"), f = fEl.files ? fEl.files.item(0) : null;
+  if (f) { fb.style.display = "flex"; fb.innerHTML = "<span>📎 " + f.name + "</span><span style='color:#f28b82;font-weight:bold;cursor:pointer' onclick='clearFile()'>✕</span>"; }
 }
 
-function clearFile() {
-  document.getElementById("fileIn").value = "";
-  document.getElementById("fileBar").style.display = "none";
-}
+function clearFile() { document.getElementById("fileIn").value = ""; document.getElementById("fileBar").style.display = "none"; }
 
 function sendMessage() {
-  var qEl = document.getElementById("q");
-  var fEl = document.getElementById("fileIn");
-  var txt = qEl.value.trim();
-  var file = (fEl.files && fEl.files.length > 0) ? fEl.files[0] : null;
+  var qEl = document.getElementById("q"), fEl = document.getElementById("fileIn"), txt = qEl.value.trim(), file = fEl.files ? fEl.files.item(0) : null;
   if (!txt && !file) return;
   addBubble("User", txt || ("📎 " + file.name), {});
   var waitBox = addBubble("AI", "⚡ جاري التفكير...", {});
-  var fd = new FormData();
-  if (sid) fd.append("sid", sid);
-  fd.append("q", txt);
-  if (file) fd.append("file", file);
-  qEl.value = "";
-  clearFile();
+  var fd = new FormData(); if (sid) fd.append("sid", sid); fd.append("q", txt); if (file) fd.append("file", file);
+  qEl.value = ""; clearFile();
   fetch("/send_all", { method: "POST", body: fd }).then(safeJson).then(function(d) {
-    sid = d.sid;
-    localStorage.setItem("dh_sid", sid);
+    sid = d.sid; localStorage.setItem("dh_sid", sid);
     if (d.job_id) {
       waitBox.textContent = "🎨🎬 جاري التصميم والإخراج السينمائي...";
       var iv = setInterval(function() {
         fetch("/job/" + d.job_id).then(safeJson).then(function(st) {
-          if (st.done) {
-            clearInterval(iv);
-            waitBox.remove();
-            addBubble("AI", st.reply, st.media);
-            loadSessions();
-          }
+          if (st.done) { clearInterval(iv); waitBox.remove(); addBubble("AI", st.reply, st.media); loadSessions(); }
         }).catch(function() {});
       }, 1500);
-    } else {
-      waitBox.remove();
-      addBubble("AI", d.reply, d.media);
-      loadSessions();
-    }
+    } else { waitBox.remove(); addBubble("AI", d.reply, d.media); loadSessions(); }
   }).catch(function(err) { waitBox.textContent = "⚠️ " + err.message; });
 }
 
-window.addEventListener("load", function() {
-  loadSessions();
-  loadMessages();
-});
+loadSessions(); loadMessages();
 </script></body></html>"""
-
-@app.route("/ui_logic.js")
-def ui_logic():
-    return Response(base64.b64decode("CnZhciBzaWQgPSBsb2NhbFN0b3JhZ2UuZ2V0SXRlbSgiZGhfc2lkIikgfHwgbnVsbDsKCmZ1bmN0aW9uIG9wZW5MaWdodGJveChzcmMsIGlkeCkgewogIHZhciBsYiA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJsaWdodGJveCIpOwogIHZhciBpbSA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJsYkltZyIpOwogIHZhciBkbCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJsYkRsIik7CiAgaWYgKCFsYiB8fCAhaW0gfHwgIWRsKSByZXR1cm47CiAgaW0uc3JjID0gc3JjOwogIGRsLmhyZWYgPSBzcmM7CiAgZGwuZG93bmxvYWQgPSAiREFSS19IT1JJWk9OXyIgKyAoaWR4ICsgMSkgKyAiLmpwZyI7CiAgbGIuc3R5bGUuZGlzcGxheSA9ICJmbGV4IjsKfQoKZnVuY3Rpb24gZGxBbGxJbWdzKGJ0bikgewogIHRyeSB7CiAgICB2YXIgYXJyID0gSlNPTi5wYXJzZShkZWNvZGVVUklDb21wb25lbnQoYnRuLmdldEF0dHJpYnV0ZSgiZGF0YS11cmxzIikpKTsKICAgIGFyci5mb3JFYWNoKGZ1bmN0aW9uKHUsIGlkeCkgewogICAgICBzZXRUaW1lb3V0KGZ1bmN0aW9uKCkgewogICAgICAgIHZhciBhID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiYSIpOwogICAgICAgIGEuaHJlZiA9IHU7CiAgICAgICAgYS5kb3dubG9hZCA9ICJEQVJLX0hPUklaT05fIiArIChpZHggKyAxKSArICIuanBnIjsKICAgICAgICBkb2N1bWVudC5ib2R5LmFwcGVuZENoaWxkKGEpOwogICAgICAgIGEuY2xpY2soKTsKICAgICAgICBkb2N1bWVudC5ib2R5LnJlbW92ZUNoaWxkKGEpOwogICAgICB9LCBpZHggKiA0NTApOwogICAgfSk7CiAgfSBjYXRjaCAoZSkge30KfQoKZnVuY3Rpb24gYWRkQnViYmxlKHJvbGUsIGNvbnRlbnQsIG1lZGlhKSB7CiAgdmFyIGNoYXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiY2hhdCIpOwogIHZhciBkID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiZGl2Iik7CiAgZC5jbGFzc05hbWUgPSAibXNnICIgKyAocm9sZSA9PT0gIlVzZXIiID8gInVzZXIiIDogImJvdCIpOwogIHZhciBoID0gY29udGVudCB8fCAiIjsKICBpZiAobWVkaWEgJiYgbWVkaWEudmlkKSB7CiAgICBoICs9ICc8ZGl2IGNsYXNzPSJpbWctd3JhcCI+PHZpZGVvIGNvbnRyb2xzIHBsYXlzaW5saW5lIHNyYz0iJyArIG1lZGlhLnZpZCArICciPjwvdmlkZW8+PGEgY2xhc3M9ImdsYXNzLWRsIiBocmVmPSInICsgbWVkaWEudmlkICsgJyIgZG93bmxvYWQ9IkRBUktfSE9SSVpPTl9WSURFTy5tcDQiPuKsh++4jzwvYT48L2Rpdj4nOwogIH0KICBpZiAobWVkaWEgJiYgbWVkaWEuaW1ncyAmJiBtZWRpYS5pbWdzLmxlbmd0aCA+IDApIHsKICAgIGlmIChtZWRpYS5pbWdzLmxlbmd0aCA+IDEpIHsKICAgICAgdmFyIGxzID0gZW5jb2RlVVJJQ29tcG9uZW50KEpTT04uc3RyaW5naWZ5KG1lZGlhLmltZ3MpKTsKICAgICAgaCArPSAnPGRpdj48YnV0dG9uIHR5cGU9ImJ1dHRvbiIgY2xhc3M9ImRsLXBpbGwiIGRhdGEtdXJscz0iJyArIGxzICsgJyIgb25jbGljaz0iZGxBbGxJbWdzKHRoaXMpIj7irIfvuI8g2K3Zgdi4INis2YXZiti5INin2YTYtdmI2LEgKCcgKyBtZWRpYS5pbWdzLmxlbmd0aCArICcpPC9idXR0b24+PC9kaXY+PGRpdiBjbGFzcz0iaW1nLWdyaWQiPic7CiAgICAgIG1lZGlhLmltZ3MuZm9yRWFjaChmdW5jdGlvbih1LCBpKSB7CiAgICAgICAgaCArPSAnPGRpdiBjbGFzcz0iaW1nLXdyYXAiIHN0eWxlPSJtYXJnaW4tdG9wOjAiPjxpbWcgc3JjPSInICsgdSArICciIHN0eWxlPSJhc3BlY3QtcmF0aW86OS8xNjtvYmplY3QtZml0OmNvdmVyIiBvbmNsaWNrPSJvcGVuTGlnaHRib3godGhpcy5zcmMsJyArIGkgKyAnKSI+PGEgY2xhc3M9ImdsYXNzLWRsIiBocmVmPSInICsgdSArICciIGRvd25sb2FkPSJEQVJLX0hPUklaT05fJyArIChpICsgMSkgKyAnLmpwZyIgb25jbGljaz0iZXZlbnQuc3RvcFByb3BhZ2F0aW9uKCkiPuKsh++4jzwvYT48L2Rpdj4nOwogICAgICB9KTsKICAgICAgaCArPSAnPC9kaXY+JzsKICAgIH0gZWxzZSB7CiAgICAgIHZhciB1MCA9IG1lZGlhLmltZ3NbMF07CiAgICAgIGggKz0gJzxkaXYgY2xhc3M9ImltZy13cmFwIj48aW1nIHNyYz0iJyArIHUwICsgJyIgb25jbGljaz0ib3BlbkxpZ2h0Ym94KHRoaXMuc3JjLDApIj48YSBjbGFzcz0iZ2xhc3MtZGwiIGhyZWY9IicgKyB1MCArICciIGRvd25sb2FkPSJEQVJLX0hPUklaT05fOEsuanBnIiBvbmNsaWNrPSJldmVudC5zdG9wUHJvcGFnYXRpb24oKSI+4qyH77iPPC9hPjwvZGl2Pic7CiAgICB9CiAgfQogIGQuaW5uZXJIVE1MID0gaDsKICBjaGF0LmFwcGVuZENoaWxkKGQpOwogIGNoYXQuc2Nyb2xsVG9wID0gY2hhdC5zY3JvbGxIZWlnaHQ7CiAgcmV0dXJuIGQ7Cn0KCmZ1bmN0aW9uIHNhZmVKc29uKHJlcykgewogIHJldHVybiByZXMudGV4dCgpLnRoZW4oZnVuY3Rpb24odCkgewogICAgdHJ5IHsgcmV0dXJuIEpTT04ucGFyc2UodCk7IH0gY2F0Y2ggKGUpIHsgdGhyb3cgbmV3IEVycm9yKCLYp9mE2K7Yp9iv2YUg2YrYs9iq2YrZgti42Iwg2KPYudivINin2YTZhdit2KfZiNmE2Kkg2KfZhNii2YYuIik7IH0KICB9KTsKfQoKZnVuY3Rpb24gcnVuRG9jdG9yKCkgewogIHZhciB3ID0gYWRkQnViYmxlKCJBSSIsICLwn6m6INis2KfYsdmKINmB2K3YtSDYp9mE2K7ZiNin2K/ZhS4uLiIsIHt9KTsKICBmZXRjaCgiL2RvY3RvciIpLnRoZW4oc2FmZUpzb24pLnRoZW4oZnVuY3Rpb24oZCkgeyB3LmlubmVySFRNTCA9IGQucmVwb3J0OyB9KS5jYXRjaChmdW5jdGlvbihlKSB7IHcudGV4dENvbnRlbnQgPSAi4pqg77iPICIgKyBlLm1lc3NhZ2U7IH0pOwp9CgpmdW5jdGlvbiBsb2FkU2Vzc2lvbnMoKSB7CiAgZmV0Y2goIi9zZXNzaW9ucyIpLnRoZW4oc2FmZUpzb24pLnRoZW4oZnVuY3Rpb24obGlzdCkgewogICAgdmFyIGJveCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJzZXNzTGlzdCIpOwogICAgaWYgKCFib3gpIHJldHVybjsKICAgIGJveC5pbm5lckhUTUwgPSAiIjsKICAgIGxpc3QuZm9yRWFjaChmdW5jdGlvbihzKSB7CiAgICAgIHZhciByb3cgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJkaXYiKTsKICAgICAgcm93LmNsYXNzTmFtZSA9ICJzLWl0ZW0iOwogICAgICB2YXIgc3AgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJzcGFuIik7CiAgICAgIHNwLnN0eWxlLmNzc1RleHQgPSAiZmxleDoxO292ZXJmbG93OmhpZGRlbjt0ZXh0LW92ZXJmbG93OmVsbGlwc2lzO3doaXRlLXNwYWNlOm5vd3JhcCI7CiAgICAgIHNwLnRleHRDb250ZW50ID0gcy50aXRsZTsKICAgICAgc3Aub25jbGljayA9IGZ1bmN0aW9uKCkgewogICAgICAgIHNpZCA9IHMuaWQ7CiAgICAgICAgbG9jYWxTdG9yYWdlLnNldEl0ZW0oImRoX3NpZCIsIHNpZCk7CiAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImRyYXdlciIpLnN0eWxlLmRpc3BsYXkgPSAibm9uZSI7CiAgICAgICAgbG9hZE1lc3NhZ2VzKCk7CiAgICAgIH07CiAgICAgIHZhciBkZWwgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJidXR0b24iKTsKICAgICAgZGVsLnRleHRDb250ZW50ID0gIuKclSI7CiAgICAgIGRlbC5zdHlsZS5jc3NUZXh0ID0gImJhY2tncm91bmQ6bm9uZTtib3JkZXI6bm9uZTtjb2xvcjojZjI4YjgyO2ZvbnQtc2l6ZToxNXB4O2N1cnNvcjpwb2ludGVyO3BhZGRpbmc6MCA0cHgiOwogICAgICBkZWwub25jbGljayA9IGZ1bmN0aW9uKGV2KSB7CiAgICAgICAgZXYuc3RvcFByb3BhZ2F0aW9uKCk7CiAgICAgICAgZmV0Y2goIi9zZXNzaW9ucy8iICsgcy5pZCwgeyBtZXRob2Q6ICJERUxFVEUiIH0pLnRoZW4oZnVuY3Rpb24oKSB7CiAgICAgICAgICBpZiAoc2lkID09IHMuaWQpIHN0YXJ0TmV3KCk7CiAgICAgICAgICBsb2FkU2Vzc2lvbnMoKTsKICAgICAgICB9KTsKICAgICAgfTsKICAgICAgcm93LmFwcGVuZENoaWxkKHNwKTsKICAgICAgcm93LmFwcGVuZENoaWxkKGRlbCk7CiAgICAgIGJveC5hcHBlbmRDaGlsZChyb3cpOwogICAgfSk7CiAgfSkuY2F0Y2goZnVuY3Rpb24oKSB7fSk7Cn0KCmZ1bmN0aW9uIHN0YXJ0TmV3KCkgewogIHNpZCA9IG51bGw7CiAgbG9jYWxTdG9yYWdlLnJlbW92ZUl0ZW0oImRoX3NpZCIpOwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJkcmF3ZXIiKS5zdHlsZS5kaXNwbGF5ID0gIm5vbmUiOwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJjaGF0IikuaW5uZXJIVE1MID0gJzxkaXYgY2xhc3M9Im1zZyBib3QiPuKcqCDYo9mH2YTYp9mLINio2YMg2YHZiiA8Yj5EQVJLIEhPUklaT04gQUk8L2I+LiDZg9mK2YEg2YrZhdmD2YbZhtmKINmF2LPYp9i52K/YqtmDINin2YTZitmI2YXYnzwvZGl2Pic7Cn0KCmZ1bmN0aW9uIGxvYWRNZXNzYWdlcygpIHsKICBpZiAoIXNpZCkgeyBzdGFydE5ldygpOyByZXR1cm47IH0KICBmZXRjaCgiL21lc3NhZ2VzLyIgKyBzaWQpLnRoZW4oc2FmZUpzb24pLnRoZW4oZnVuY3Rpb24obXNncykgewogICAgdmFyIGNoYXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiY2hhdCIpOwogICAgY2hhdC5pbm5lckhUTUwgPSAiIjsKICAgIG1zZ3MuZm9yRWFjaChmdW5jdGlvbihtKSB7IGFkZEJ1YmJsZShtLnJvbGUsIG0uY29udGVudCwgbS5tZWRpYSk7IH0pOwogIH0pLmNhdGNoKGZ1bmN0aW9uKCkgeyBzdGFydE5ldygpOyB9KTsKfQoKZnVuY3Rpb24gc2VuZE1lc3NhZ2UoKSB7CiAgdmFyIHFFbCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJxIik7CiAgdmFyIGZFbCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJmaWxlSW4iKTsKICB2YXIgdHh0ID0gcUVsLnZhbHVlLnRyaW0oKTsKICB2YXIgZmlsZSA9IChmRWwuZmlsZXMgJiYgZkVsLmZpbGVzLmxlbmd0aCA+IDApID8gZkVsLmZpbGVzWzBdIDogbnVsbDsKICBpZiAoIXR4dCAmJiAhZmlsZSkgcmV0dXJuOwogIGFkZEJ1YmJsZSgiVXNlciIsIHR4dCB8fCAoIvCfk44gIiArIGZpbGUubmFtZSksIHt9KTsKICB2YXIgd2FpdEJveCA9IGFkZEJ1YmJsZSgiQUkiLCAi4pqhINis2KfYsdmKINin2YTYqtmB2YPZitixLi4uIiwge30pOwogIHZhciBmZCA9IG5ldyBGb3JtRGF0YSgpOwogIGlmIChzaWQpIGZkLmFwcGVuZCgic2lkIiwgc2lkKTsKICBmZC5hcHBlbmQoInEiLCB0eHQpOwogIGlmIChmaWxlKSBmZC5hcHBlbmQoImZpbGUiLCBmaWxlKTsKICBxRWwudmFsdWUgPSAiIjsKICBmRWwudmFsdWUgPSAiIjsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZmlsZUJhciIpLnN0eWxlLmRpc3BsYXkgPSAibm9uZSI7CiAgZmV0Y2goIi9zZW5kX2FsbCIsIHsgbWV0aG9kOiAiUE9TVCIsIGJvZHk6IGZkIH0pLnRoZW4oc2FmZUpzb24pLnRoZW4oZnVuY3Rpb24oZCkgewogICAgc2lkID0gZC5zaWQ7CiAgICBsb2NhbFN0b3JhZ2Uuc2V0SXRlbSgiZGhfc2lkIiwgc2lkKTsKICAgIGlmIChkLmpvYl9pZCkgewogICAgICB3YWl0Qm94LnRleHRDb250ZW50ID0gIvCfjqjwn46sINis2KfYsdmKINin2YTYqti12YXZitmFINmI2KfZhNil2K7Ysdin2Kwg2KfZhNiz2YrZhtmF2KfYptmKLi4uIjsKICAgICAgdmFyIGl2ID0gc2V0SW50ZXJ2YWwoZnVuY3Rpb24oKSB7CiAgICAgICAgZmV0Y2goIi9qb2IvIiArIGQuam9iX2lkKS50aGVuKHNhZmVKc29uKS50aGVuKGZ1bmN0aW9uKHN0KSB7CiAgICAgICAgICBpZiAoc3QuZG9uZSkgewogICAgICAgICAgICBjbGVhckludGVydmFsKGl2KTsKICAgICAgICAgICAgd2FpdEJveC5yZW1vdmUoKTsKICAgICAgICAgICAgYWRkQnViYmxlKCJBSSIsIHN0LnJlcGx5LCBzdC5tZWRpYSk7CiAgICAgICAgICAgIGxvYWRTZXNzaW9ucygpOwogICAgICAgICAgfQogICAgICAgIH0pLmNhdGNoKGZ1bmN0aW9uKCkge30pOwogICAgICB9LCAxNTAwKTsKICAgIH0gZWxzZSB7CiAgICAgIHdhaXRCb3gucmVtb3ZlKCk7CiAgICAgIGFkZEJ1YmJsZSgiQUkiLCBkLnJlcGx5LCBkLm1lZGlhKTsKICAgICAgbG9hZFNlc3Npb25zKCk7CiAgICB9CiAgfSkuY2F0Y2goZnVuY3Rpb24oZXJyKSB7IHdhaXRCb3gudGV4dENvbnRlbnQgPSAi4pqg77iPICIgKyBlcnIubWVzc2FnZTsgfSk7Cn0KCmZ1bmN0aW9uIGluaXRVSSgpIHsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZG9jQnRuIikub25jbGljayA9IHJ1bkRvY3RvcjsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaGlzdEJ0biIpLm9uY2xpY2sgPSBmdW5jdGlvbigpIHsKICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJkcmF3ZXIiKS5zdHlsZS5kaXNwbGF5ID0gImJsb2NrIjsKICAgIGxvYWRTZXNzaW9ucygpOwogIH07CiAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImRyYXdlciIpLm9uY2xpY2sgPSBmdW5jdGlvbihlKSB7CiAgICBpZiAoZS50YXJnZXQuaWQgPT09ICJkcmF3ZXIiKSB0aGlzLnN0eWxlLmRpc3BsYXkgPSAibm9uZSI7CiAgfTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibmV3QnRuIikub25jbGljayA9IHN0YXJ0TmV3OwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJkcmF3ZXJOZXciKS5vbmNsaWNrID0gc3RhcnROZXc7CiAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoInBsdXNCdG4iKS5vbmNsaWNrID0gZnVuY3Rpb24oKSB7IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJmaWxlSW4iKS5jbGljaygpOyB9OwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJmaWxlSW4iKS5vbmNoYW5nZSA9IGZ1bmN0aW9uKCkgewogICAgdmFyIGZFbCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJmaWxlSW4iKSwgZmIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZmlsZUJhciIpOwogICAgaWYgKGZFbC5maWxlcyAmJiBmRWwuZmlsZXMubGVuZ3RoID4gMCkgewogICAgICBmYi5zdHlsZS5kaXNwbGF5ID0gImZsZXgiOwogICAgICBmYi5pbm5lckhUTUwgPSAiPHNwYW4+8J+TjiAiICsgZkVsLmZpbGVzWzBdLm5hbWUgKyAiPC9zcGFuPjxzcGFuIHN0eWxlPSdjb2xvcjojZjI4YjgyO2ZvbnQtd2VpZ2h0OmJvbGQ7Y3Vyc29yOnBvaW50ZXInIG9uY2xpY2s9J2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJmaWxlSW4iKS52YWx1ZT0iIjtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZmlsZUJhciIpLnN0eWxlLmRpc3BsYXk9Im5vbmUiOyc+4pyVPC9zcGFuPiI7CiAgICB9CiAgfTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgic2VuZEJ0biIpLm9uY2xpY2sgPSBzZW5kTWVzc2FnZTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgicSIpLm9ua2V5ZG93biA9IGZ1bmN0aW9uKGUpIHsgaWYgKGUua2V5ID09PSAiRW50ZXIiKSB7IGUucHJldmVudERlZmF1bHQoKTsgc2VuZE1lc3NhZ2UoKTsgfSB9OwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJsYkNsb3NlIikub25jbGljayA9IGZ1bmN0aW9uKCkgeyBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibGlnaHRib3giKS5zdHlsZS5kaXNwbGF5ID0gIm5vbmUiOyB9OwogIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJsaWdodGJveCIpLm9uY2xpY2sgPSBmdW5jdGlvbihlKSB7IGlmIChlLnRhcmdldC5pZCA9PT0gImxpZ2h0Ym94IikgdGhpcy5zdHlsZS5kaXNwbGF5ID0gIm5vbmUiOyB9OwogIGxvYWRTZXNzaW9ucygpOwogIGxvYWRNZXNzYWdlcygpOwp9CgppZiAoZG9jdW1lbnQucmVhZHlTdGF0ZSA9PT0gImxvYWRpbmciKSB7CiAgZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcigiRE9NQ29udGVudExvYWRlZCIsIGluaXRVSSk7Cn0gZWxzZSB7CiAgaW5pdFVJKCk7Cn0K").decode("utf-8"), mimetype="application/javascript")
 
 @app.route("/doctor")
 def doctor():
