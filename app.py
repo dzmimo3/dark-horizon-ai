@@ -195,6 +195,28 @@ def try_free_t2v(prompt_en, out_mp4):
         except Exception:
             pass
 
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if g_key:
+        try:
+            veo_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}veo-2.0-generate-001:predictLongRunning?key={g_key}"
+            vr = requests.post(veo_url, json={"instances": [{"prompt": f"{prompt_en}, realistic live action motion, crisp 8k focus"}], "parameters": {"aspectRatio": "9:16"}}, timeout=20)
+            if vr.status_code == 200:
+                op_name = vr.json().get("name", "")
+                if op_name:
+                    for _ in range(12):
+                        time.sleep(4)
+                        op_r = requests.get(f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}{op_name}?key={g_key}", timeout=15).json()
+                        if op_r.get("done"):
+                            v_uri = op_r.get("response", {}).get("generateVideoResponse", {}).get("generatedSamples", [{}]).get("video", {}).get("uri", "")
+                            if v_uri:
+                                v_bytes = requests.get(f"{v_uri}&key={g_key}", timeout=30).content
+                                if len(v_bytes) > 25000:
+                                    open(out_mp4, "wb").write(v_bytes)
+                                    return True
+                            break
+        except Exception:
+            pass
+
     hf_tok = (get_keys("HF_TOKEN") or [None])
     # 1. الاتصال المباشر بأقوى مساحات الفيديو الحركي الواقعي المجانية (NVIDIA H100/A100)
     spaces = ("Wan-AI/Wan2.1", "Lightricks/LTX-Video-Distilled", "THUDM/CogVideoX-5B-Space")
