@@ -122,7 +122,9 @@ def generate_media(q, hist_ctx):
     if is_vid:
         sl = chr(47)
         seed = random.randint(10000, 999999)
-        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً من جملتين بالعربية الفصحى بدون رموز."}, {"role": "user", "content": ctx_q}])
+        script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً تاريخياً مشوقاً من جملتين بالعربية الفصحى بدون رموز."}, {"role": "user", "content": q}])
+        if "أهلاً بك" in script or len(script) < 10:
+            script = f"في صفحات التاريخ العريق، تتجلى أعظم الملاحم والبطولات التي خلدتها الذاكرة الإنسانية عبر العصور."
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
@@ -167,11 +169,24 @@ def generate_media(q, hist_ctx):
                 if os.path.exists(im_p):
                     subprocess.run(["ffmpeg", "-y", "-loop", "1", "-framerate", "12", "-i", im_p, "-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-t", f"{sc_dur:.2f}", "-pix_fmt", "yuv420p", cl_p], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     if os.path.exists(cl_p): clips.append(cl_p)
-            lst_p = os.path.join(WORK, f"lst_{seed}.txt")
-            open(lst_p, "w").write("\n".join([f"file '{c}'" for c in clips]))
-            m_vid = os.path.join(WORK, f"m_{seed}.mp4")
-            subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst_p, "-c", "copy", m_vid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            cmd = ["ffmpeg", "-y", "-i", m_vid] + (["-i", aud_p, "-c:v", "copy", "-c:a", "aac"] if has_aud else ["-c", "copy"]) + ["-t", f"{req_dur:.2f}", vid_p]
+            valid_imgs = [os.path.join(WORK, u.replace("/media/", "")) for u in sc_urls if os.path.exists(os.path.join(WORK, u.replace("/media/", "")))]
+            if not valid_imgs:
+                from PIL import Image
+                fb_im = os.path.join(WORK, f"fb_{seed}.jpg")
+                Image.new("RGB", (540, 960), (20, 30, 50)).save(fb_im)
+                valid_imgs = [fb_im]
+            sc_d = req_dur / len(valid_imgs)
+            inp_args = []
+            flt = ""
+            for idx, im_f in enumerate(valid_imgs):
+                inp_args += ["-loop", "1", "-t", f"{sc_d:.2f}", "-i", im_f]
+                flt += f"[{idx}:v]scale=540:960:force_original_aspect_ratio=increase,crop=540:960,setsar=1[v{idx}];"
+            flt += "".join([f"[v{i}]" for i in range(len(valid_imgs))]) + f"concat=n={len(valid_imgs)}:v=1:a=0[outv]"
+            cmd = ["ffmpeg", "-y"] + inp_args
+            if has_aud:
+                cmd += ["-i", aud_p, "-filter_complex", flt, "-map", "[outv]", "-map", f"{len(valid_imgs)}:a", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", vid_p]
+            else:
+                cmd += ["-filter_complex", flt, "-map", "[outv]", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-t", f"{req_dur:.2f}", vid_p]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         mode_lbl = "فيديو حركي بالذكاء الاصطناعي (AI Motion)" if got_real_video else "مونتاج مشاهد متتابعة"
