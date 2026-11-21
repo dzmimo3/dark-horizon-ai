@@ -126,7 +126,7 @@ def generate_media(q, hist_ctx):
     if any("\u0600" <= c <= "\u06FF" for c in en_p) or len(en_p) < 5:
         en_p = "cinematic Arabian horse running in golden desert dunes at sunset, 8k"
 
-    if is_vid or is_img:
+    if is_vid:
         seed = random.randint(10000, 999999)
         script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً من جملتين بالعربية الفصحى بدون رموز."}, {"role": "user", "content": ctx_q}])
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
