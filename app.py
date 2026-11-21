@@ -109,7 +109,7 @@ def generate_image_item(en_prompt, idx=0):
                 if p0.get("bytesBase64Encoded"):
                     open(fpath, "wb").write(base64.b64decode(p0["bytesBase64Encoded"]))
                     apply_brand_logo(fpath)
-                    return f"/media/{fn}"
+                    return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
         except Exception: pass
 
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
@@ -128,11 +128,11 @@ def generate_image_item(en_prompt, idx=0):
                         if b64_img:
                             open(fpath, "wb").write(base64.b64decode(b64_img))
                             apply_brand_logo(fpath)
-                            return f"/media/{fn}"
+                            return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
                     elif len(cr.content) > 4000:
                         open(fpath, "wb").write(cr.content)
                         apply_brand_logo(fpath)
-                        return f"/media/{fn}"
+                        return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
             except Exception: continue
 
     time.sleep(idx * 1.5)
@@ -142,7 +142,7 @@ def generate_image_item(en_prompt, idx=0):
         if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content:
             open(fpath, "wb").write(r.content)
             apply_brand_logo(fpath)
-            return f"/media/{fn}"
+            return "data:image/jpeg;base64," + base64.b64encode(open(fpath, "rb").read()).decode("utf-8")
     except Exception: pass
     return p_url
 
@@ -289,12 +289,12 @@ header{padding:12px 16px;background:#111622;display:flex;justify-content:space-b
 .msg{max-width:88%;padding:12px 16px;border-radius:18px;line-height:1.6;font-size:15px;white-space:pre-wrap}.user{align-self:flex-start;background:#1e293b;border:1px solid #38bdf8}.bot{align-self:flex-end;background:#1a2130;border:1px solid rgba(255,255,255,0.1);width:100%}
 .bot video{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;margin-top:8px;background:#000}.img-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .img-card{background:#0f172a;border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column}.img-card img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px}
-.dl{display:block;text-align:center;background:#f59e0b;color:#000;padding:10px;border-radius:10px;margin-top:8px;text-decoration:none;font-weight:800;width:100%;border:none;cursor:pointer}.dl-sm{text-align:center;background:rgba(245,158,11,0.2);color:#fde047;padding:6px;border-radius:8px;margin-top:6px;text-decoration:none;font-size:12px;font-weight:700}
+.img-wrap{position:relative;margin-top:8px;border-radius:14px;overflow:hidden;cursor:zoom-in}.img-wrap img{width:100%;display:block;border-radius:14px}.glass-dl{position:absolute;top:10px;left:10px;width:36px;height:36px;border-radius:50%;background:rgba(15,23,42,0.72);backdrop-filter:blur(6px);color:#f8fafc;border:1px solid rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,0.4)}.dl-all{display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);padding:7px 14px;border-radius:20px;margin-top:8px;font-size:13px;font-weight:700;cursor:pointer}#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:16px}#lightbox img{max-width:100%;max-height:82vh;border-radius:12px;object-fit:contain}.lb-bar{display:flex;gap:14px;margin-top:16px}.lb-btn{background:rgba(255,255,255,0.14);color:#fff;border:1px solid rgba(255,255,255,0.25);padding:10px 20px;border-radius:24px;text-decoration:none;font-size:14px;font-weight:700;cursor:pointer}
 .footer{background:#111622;padding:12px;border-top:1px solid rgba(245,158,11,0.2)}.input-row{max-width:800px;margin:auto;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.08);border:1px solid #f59e0b;border-radius:26px;padding:6px 12px}
 input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;outline:none;padding:6px}.c-btn{border:none;width:40px;height:40px;border-radius:50%;font-weight:bold;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}#plusBtn{background:rgba(255,255,255,0.12);color:#f59e0b}#sendBtn{background:#f59e0b;color:#000}
 </style></head><body>
 <header><span class="brand">✨ DARK HORIZON AI</span><div><button type="button" id="docBtn" class="h-btn">🩺 فحص</button> <button type="button" id="histBtn" class="h-btn">📂 السجل</button> <button type="button" id="newBtn" class="h-btn">➕</button></div></header>
-<div id="drawer"></div><div id="chat"></div>
+<div id="lightbox"><img id="lbImg" src=""><div class="lb-bar"><a id="lbDl" class="lb-btn" download="DARK_HORIZON_8K.jpg">⬇️ حفظ الصورة</a><button type="button" id="lbClose" class="lb-btn">✕ إغلاق</button></div></div><div id="drawer"></div><div id="chat"></div>
 <div class="footer"><div id="fileBar" style="display:none;max-width:800px;margin:0 auto 8px;background:rgba(245,158,11,0.2);color:#fde047;padding:6px 12px;border-radius:10px;font-size:13px;justify-content:space-between"></div>
 <div class="input-row"><input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none"><button type="button" id="plusBtn" class="c-btn">+</button><input type="text" id="q" placeholder="تحدث، أرفق ملفاً، اطلب صوراً أو فيديو..."><button type="button" id="sendBtn" class="c-btn">➤</button></div></div>
 <script src="/ui_logic.js"></script></body></html>"""
@@ -303,13 +303,35 @@ input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:
 def ui_logic():
     code = """
 var sid = localStorage.getItem("dh_sid") || null;
-function dlAllImgs(enc){ JSON.parse(decodeURIComponent(enc)).forEach(function(u, idx){ setTimeout(function(){ var a=document.createElement("a"); a.href=u; a.download="DARK_HORIZON_"+(idx+1)+".jpg"; document.body.appendChild(a); a.click(); document.body.removeChild(a); }, idx*500); }); }
+function openLightbox(src, idx){
+  var lb=document.getElementById("lightbox"), im=document.getElementById("lbImg"), dl=document.getElementById("lbDl");
+  im.src=src; dl.href=src; dl.download="DARK_HORIZON_"+(idx+1)+".jpg"; lb.style.display="flex";
+}
+function triggerDownload(url, fn){
+  var a=document.createElement("a"); a.href=url; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function dlAllImgs(enc){
+  JSON.parse(decodeURIComponent(enc)).forEach(function(u, idx){
+    setTimeout(function(){ triggerDownload(u, "DARK_HORIZON_"+(idx+1)+".jpg"); }, idx*400);
+  });
+}
 function addBubble(role, content, media){
   var chat=document.getElementById("chat"), d=document.createElement("div"); d.className="msg "+(role==="User"?"user":"bot"); var h=content;
-  if(media && media.vid) h+='<video controls playsinline src="'+media.vid+'"></video><a class="dl" href="'+media.vid+'" download="DARK_HORIZON_VIDEO.mp4">⬇️ تحميل الفيديو إلى Download</a>';
+  if(media && media.vid){
+    h+='<div class="img-wrap"><video controls playsinline src="'+media.vid+'" style="width:100%;border-radius:14px"></video><a class="glass-dl" href="'+media.vid+'" download="DARK_HORIZON_VIDEO.mp4" title="تحميل">⬇️</a></div>';
+  }
   if(media && media.imgs && media.imgs.length>0){
-    if(media.imgs.length>1){ var ls=encodeURIComponent(JSON.stringify(media.imgs)); h+='<button type="button" class="dl" onclick="dlAllImgs(\\''+ls+'\\')">⬇️ تحميل جميع الصور ('+media.imgs.length+') إلى Download</button><div class="img-grid">'; media.imgs.forEach(function(u,i){ h+='<div class="img-card"><img src="'+u+'"><a class="dl-sm" href="'+u+'" download="DARK_HORIZON_'+(i+1)+'.jpg">⬇️ صورة '+(i+1)+'</a></div>'; }); h+='</div>'; }
-    else { var u=media.imgs; h+='<img style="width:100%;border-radius:12px;margin-top:8px" src="'+u+'"><a class="dl" href="'+u+'" download="DARK_HORIZON_IMG.jpg">⬇️ تحميل الصورة إلى Download</a>'; }
+    if(media.imgs.length>1){
+      var ls=encodeURIComponent(JSON.stringify(media.imgs));
+      h+='<div><button type="button" class="dl-all" onclick="dlAllImgs(\''+ls+'\')">⬇️ حفظ الكل ('+media.imgs.length+')</button></div><div class="img-grid">';
+      media.imgs.forEach(function(u,i){
+        h+='<div class="img-wrap" style="margin-top:0"><img src="'+u+'" style="aspect-ratio:9/16;object-fit:cover" onclick="openLightbox(this.src,'+i+')"><a class="glass-dl" href="'+u+'" download="DARK_HORIZON_'+(i+1)+'.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+      });
+      h+='</div>';
+    } else {
+      var u=media.imgs;
+      h+='<div class="img-wrap"><img src="'+u+'" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="'+u+'" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+    }
   }
   d.innerHTML=h; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d;
 }
@@ -337,7 +359,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.getElementById("fileIn").addEventListener("change",function(){var fEl=document.getElementById("fileIn"),fb=document.getElementById("fileBar");if(fEl.files&&fEl.files.length>0){fb.style.display="flex";fb.innerHTML="<span>📎 "+fEl.files.name+"</span><span id='clrF' style='color:#ef4444;font-weight:bold;cursor:pointer'>✕</span>";document.getElementById("clrF").addEventListener("click",function(){fEl.value="";fb.style.display="none";});}});
   document.getElementById("sendBtn").addEventListener("click",sendMessage);
   document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();sendMessage();}});
-  loadSessions(); loadMessages();
+  document.getElementById("lbClose").addEventListener("click",function(){document.getElementById("lightbox").style.display="none";}); document.getElementById("lightbox").addEventListener("click",function(e){if(e.target.id==="lightbox")this.style.display="none";}); loadSessions(); loadMessages();
 });
 """
     return Response(code, mimetype="application/javascript")
