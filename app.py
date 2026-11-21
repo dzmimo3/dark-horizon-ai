@@ -59,7 +59,14 @@ def generate_image_item(en_prompt, idx=0):
                 return f"/media/{fn}"
         except Exception: continue
 
-    direct_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&model=flux&seed={seed}"
+    direct_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
+    try:
+        r = requests.get(direct_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25)
+        if r.status_code == 200 and len(r.content) > 2000:
+            open(fpath, "wb").write(r.content)
+            return f"/media/{fn}"
+    except Exception:
+        pass
     return direct_url
 
 async def make_voice(txt, mp3):
