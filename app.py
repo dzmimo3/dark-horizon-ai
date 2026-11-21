@@ -152,19 +152,19 @@ async def make_voice(txt, mp3):
 
 def fast_ar_to_en(text, web_facts=""):
     sl = chr(47)
-    clean = re.sub(r"(حول هذا النص إلى|حول هذا النص الى|اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|واقعي|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip() or text
-    ai_p = smart_ai([{"role": "system", "content": "You are a film director. Translate the exact user subject into ONE vivid 18-word English visual prompt for AI image/video. Output ONLY English words."}, {"role": "user", "content": f"Subject: {clean}\nFacts: {web_facts[:350]}"}])
-    if ai_p and not any("\u0600" <= c <= "\u06FF" for c in ai_p) and len(ai_p) > 4:
-        return ai_p
+    clean = re.sub(r"(اريد|انشيء|أنشئ|صمم|ارسم|صور|صورة|فيديو|واقعي|فلم|فيلم|مدته|ثوان|ثانية|\d+)", "", text).strip() or text
+    ai_p = smart_ai([{"role": "system", "content": "Translate the exact Arabic words into a direct, literal English visual description for AI image generation. Do NOT add unrelated objects or places. Output ONLY English words."}, {"role": "user", "content": clean}])
+    if ai_p and not any("\u0600" <= c <= "\u06FF" for c in ai_p) and len(ai_p) > 2:
+        return f"{ai_p}, photorealistic, sharp focus, 8k"
     try:
         u = f"https:{sl}{sl}://googleapis.com{sl}translate_a{sl}single"
         r = requests.get(u, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": clean[:250]}, timeout=8)
         if r.status_code == 200:
             segs = next(iter(r.json()), [])
             en = "".join([s for s in segs if isinstance(s, list) and s]).strip()
-            if en and len(en) > 2: return en
+            if en and len(en) > 1: return f"{en}, photorealistic, sharp focus, 8k"
     except Exception: pass
-    return f"cinematic photorealistic scene depicting {clean}"
+    return f"photorealistic portrait of {clean}, 8k"
 
 def try_real_video(prompt_en, img_path, aud_path, is_talk, out_mp4):
     sl = chr(47)
@@ -261,8 +261,11 @@ def generate_media(q, hist_ctx):
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "شخصيات", "مشابهة")) else 1)
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        urls = [u for u in ex.map(lambda i: generate_image_item(f"{en_p}, variation {i+1}", i), range(count)) if u]
+    urls = []
+    for i in range(count):
+        if i > 0: time.sleep(1.2)
+        u = generate_image_item(f"{en_p}, cinematic shot {i+1}", i)
+        if u: urls.append(u)
     if len(urls) > 1: return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية 8K (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
     if len(urls) == 1: return "🎨 <b>تم تصميم الصورة بدقة سينمائية 8K (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
     return "⚠️ الخادم السحابي مشغول لحظياً، أعد إرسال الطلب.", {}
