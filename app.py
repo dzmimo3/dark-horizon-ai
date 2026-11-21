@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import os, re, json, time, random, shutil, base64, sqlite3, asyncio, threading, subprocess, urllib.parse, requests
 from flask import Flask, request, jsonify, render_template_string, send_from_directory, Response
 import edge_tts
@@ -63,41 +64,21 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, cinematic shot {idx+1}, hyperrealistic, dramatic lighting, 8k"
+    full_p = f"{en_prompt}, cinematic angle {idx+1}, hyperrealistic, dramatic lighting, 8k"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
-    # بناء قائمة الخوادم المتاحة وتوزيع كل صورة على خادم مختلف (Round-Robin)
-    providers = []
-    hf_keys = get_keys("HF_TOKEN")
-    if hf_keys:
-        providers.append(("hf", hf_keys[idx % len(hf_keys)]))
+    # 1. الأولوية القصوى لبطاقات Cloudflare GPU (10,000 طلب مجاني يومياً - 2 ثانية للصورة)
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        providers.append(("cf", (cf_acc, cf_tok)))
-    providers.append(("poll", idx))
-
-    ordered = [providers[(idx + i) % len(providers)] for i in range(len(providers))]
-
-    for p_type, cred in ordered:
-        try:
-            if p_type == "hf":
-                hf_mdls = ("black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0")
-                mdl = hf_mdls[idx % len(hf_mdls)]
-                hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{mdl}"
-                hr = requests.post(hf_url, headers={"Authorization": f"Bearer {cred}"}, json={"inputs": full_p[:240]}, timeout=25)
-                if hr.status_code == 200 and len(hr.content) > 5000:
-                    open(fpath, "wb").write(hr.content)
-                    apply_brand_logo(fpath)
-                    return f"/media/{fn}"
-
-            elif p_type == "cf":
-                acc_id, tok = cred
-                cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
-                c_mdl = cf_mdls[idx % len(cf_mdls)]
-                cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{acc_id}{sl}ai{sl}run{sl}{c_mdl}"
-                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {tok}"}, json={"prompt": full_p[:240]}, timeout=25)
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0", "@cf/bytedance/stable-diffusion-xl-lightning")
+        for step in range(len(cf_mdls)):
+            c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
+            cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
+            payload = {"prompt": full_p[:240], "steps": 4} if "flux" in c_mdl else {"prompt": full_p[:240]}
+            try:
+                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}"}, json=payload, timeout=18)
                 if cr.status_code == 200:
                     if "application/json" in cr.headers.get("Content-Type", ""):
                         b64_img = cr.json().get("result", {}).get("image", "")
@@ -109,19 +90,33 @@ def generate_image_item(en_prompt, idx=0):
                         open(fpath, "wb").write(cr.content)
                         apply_brand_logo(fpath)
                         return f"/media/{fn}"
+            except Exception:
+                continue
 
-            elif p_type == "poll":
-                for attempt in range(2):
-                    if idx > 0 or attempt > 0:
-                        time.sleep(10.5)
-                    p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed + attempt}"
-                    r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (Studio-{idx})"}, timeout=25)
-                    if r.status_code == 200 and len(r.content) > 16000 and b"Free limit" not in r.content:
-                        open(fpath, "wb").write(r.content)
-                        apply_brand_logo(fpath)
-                        return f"/media/{fn}"
+    # 2. Hugging Face GPU كخيار ثانٍ سريع
+    hf_keys = get_keys("HF_TOKEN")
+    for hft in hf_keys:
+        hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}black-forest-labs{sl}FLUX.1-schnell"
+        try:
+            hr = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=18)
+            if hr.status_code == 200 and len(hr.content) > 5000:
+                open(fpath, "wb").write(hr.content)
+                apply_brand_logo(fpath)
+                return f"/media/{fn}"
         except Exception:
             continue
+
+    # 3. Pollinations السريع للصورة الأولى فقط بدون تعليق
+    if idx == 0:
+        p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
+        try:
+            r = requests.get(p_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            if r.status_code == 200 and len(r.content) > 16000 and b"Free limit" not in r.content:
+                open(fpath, "wb").write(r.content)
+                apply_brand_logo(fpath)
+                return f"/media/{fn}"
+        except Exception:
+            pass
     return None
 
 async def make_voice(txt, mp3):
@@ -165,7 +160,8 @@ def generate_media(q, hist_ctx):
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة")) else 1)
-    urls = [u for u in [generate_image_item(en_p, i) for i in range(count)] if u]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        urls = [u for u in ex.map(lambda i: generate_image_item(en_p, i), range(count)) if u]
     if len(urls) > 1:
         return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
     return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": urls}
