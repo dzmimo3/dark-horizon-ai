@@ -335,11 +335,39 @@ header{padding:12px 16px;background:#131314;display:flex;justify-content:space-b
     <input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none" onchange="onFilePicked()">
     <button type="button" id="plusBtn" class="c-btn" onclick="document.getElementById('fileIn').click()">+</button>
     <input type="text" id="q" placeholder="اسأل DARK HORIZON AI..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendMessage();}">
-    <button type="button" id="sendBtn" class="c-btn" onclick="sendMessage()">↑</button>
+    <button type="button" id="micBtn" class="c-btn" style="background:transparent;color:#c4c7c5;font-size:18px" onclick="startVoiceInput()" title="تحدث صوتياً">🎤</button><button type="button" id="sendBtn" class="c-btn" onclick="sendMessage()">↑</button>
   </div>
 </div>
 <script>
 var sid = localStorage.getItem("dh_sid") || null;
+
+
+function startVoiceInput() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("متصفحك لا يدعم الإدخال الصوتي المباشر."); return; }
+  var rec = new SR();
+  rec.lang = "ar-DZ";
+  var mb = document.getElementById("micBtn");
+  mb.style.color = "#f28b82";
+  rec.onresult = function(e) {
+    var txt = e.results.item(0).item(0).transcript;
+    document.getElementById("q").value = txt;
+    mb.style.color = "#c4c7c5";
+    sendMessage();
+  };
+  rec.onerror = function() { mb.style.color = "#c4c7c5"; };
+  rec.onend = function() { mb.style.color = "#c4c7c5"; };
+  rec.start();
+}
+
+function saveLocalBackup(sId, title, role, content) {
+  try {
+    var db = JSON.parse(localStorage.getItem("dh_backup_db") || "{}");
+    if (!db[sId]) db[sId] = { title: title || "محادثة", msgs: [] };
+    db[sId].msgs.push({ role: role, content: content });
+    localStorage.setItem("dh_backup_db", JSON.stringify(db));
+  } catch (e) {}
+}
 
 function openLightbox(src, idx) {
   var lb = document.getElementById("lightbox"), im = document.getElementById("lbImg"), dl = document.getElementById("lbDl");
@@ -381,7 +409,7 @@ function addBubble(role, content, media) {
       h += '<div class="img-wrap"><img src="' + u0 + '" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="' + u0 + '" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
     }
   }
-  d.innerHTML = h; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
+  d.innerHTML = h; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; if(sid && content && content.indexOf("جاري")===-1) saveLocalBackup(sid, content.slice(0,25), role, content); return d;
 }
 
 function safeJson(res) {
