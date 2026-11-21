@@ -129,7 +129,14 @@ def generate_media(q, hist_ctx):
         cmd = ["ffmpeg", "-y", "-i", m_vid] + (["-i", aud_p, "-c:v", "copy", "-c:a", "aac"] if has_aud else ["-c", "copy"]) + ["-t", f"{req_dur:.2f}", vid_p]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": vid_fn}
-    return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": [build_image(en_p)], "motions": ["Cinematic camera push-in"]}
+    m_cnt = re.search(r"(\d+)\s*(?:صور|صورة|images?)", q, re.I)
+    count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (10 if any(w in low for w in ("صور", "عشر", "10", "معرض", "تشكيلة")) else 1)
+    if count > 1:
+        angles = [f"{en_p}, cinematic angle {i+1}, dramatic lighting" for i in range(count)]
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            fns = list(ex.map(build_image, angles))
+        return f"🎨 <b>تم تصميم {len(fns)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": fns}
+    return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": [build_image(en_p)]}
 
 HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>DARK HORIZON AI</title><style>
@@ -143,7 +150,11 @@ header{padding:12px 16px;background:#111622;display:flex;justify-content:space-b
 .msg{max-width:88%;padding:12px 16px;border-radius:18px;line-height:1.6;font-size:15px;white-space:pre-wrap}
 .user{align-self:flex-start;background:#1e293b;border:1px solid #38bdf8}
 .bot{align-self:flex-end;background:#1a2130;border:1px solid rgba(255,255,255,0.1);width:100%}
-.bot img,.bot video{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;margin-top:8px;background:#000}
+.bot video{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;margin-top:8px;background:#000}
+.img-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.img-card{background:#0f172a;border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:6px;display:flex;flex-direction:column}
+.img-card img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px}
+.dl-sm{text-align:center;background:rgba(245,158,11,0.2);color:#fde047;padding:6px;border-radius:8px;margin-top:6px;text-decoration:none;font-size:12px;font-weight:700}
 .dl{display:block;text-align:center;background:#f59e0b;color:#000;padding:10px;border-radius:10px;margin-top:8px;text-decoration:none;font-weight:800}
 .footer{background:#111622;padding:12px;border-top:1px solid rgba(245,158,11,0.2)}
 .input-row{max-width:800px;margin:auto;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.08);border:1px solid #f59e0b;border-radius:26px;padding:6px 12px}
@@ -162,6 +173,19 @@ input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:
 def ui_logic():
     code = """
 var sid = localStorage.getItem("dh_sid") || null;
+function dlAllImgs(enc){
+  var arr = JSON.parse(decodeURIComponent(enc));
+  arr.forEach(function(fn, idx){
+    setTimeout(function(){
+      var a = document.createElement("a");
+      a.href = "/media/" + fn;
+      a.download = fn;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }, idx * 450);
+  });
+}
 function addBubble(role, content, media){
   var chat = document.getElementById("chat"), d = document.createElement("div");
   d.className = "msg " + (role === "User" ? "user" : "bot");
@@ -296,8 +320,13 @@ def send_all():
         JOBS[jid] = {"done": False}
         threading.Thread(target=run_video_job, args=(jid, sid, q, ctx), daemon=True).start()
         return jsonify({"sid": sid, "job_id": jid})
-    elif any(w in q.lower() for w in ("صورة", "صور", "ارسم", "image", "draw")):
-        rep, m_obj = generate_media(q, ctx)
+    elif any(w in q.lower() for w in ("صورة", "صور", "ارسم", "image", "draw", "عشر")):
+        jid = f"j_{int(time.time())}_{random.randint(100,999)}"
+        with db_lock:
+            conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,))
+            conn.commit()
+        threading.Thread(target=run_video_job, args=(jid, sid, q, ctx), daemon=True).start()
+        return jsonify({"sid": sid, "job_id": jid})
     else:
         msgs = [{"role": "system", "content": "أنت المساعد الذكي لاستوديو DARK HORIZON FILMS LTD. تفهم جميع اللهجات واللغات وترد بذكاء وسرعة مثل ChatGPT."}]
         for r in hist: msgs.append({"role": "user" if r[0] == "User" else "assistant", "content": r[1][:400]})
