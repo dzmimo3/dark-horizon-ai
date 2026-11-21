@@ -63,6 +63,20 @@ def web_search_engine(query):
 
 def smart_ai(messages):
     sl = chr(47)
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if g_key:
+        try:
+            g_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}gemini-2.5-flash:generateContent?key={g_key}"
+            prompt_txt = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-6:]])
+            gr = requests.post(g_url, json={"contents": [{"parts": [{"text": prompt_txt}]}]}, timeout=15)
+            if gr.status_code == 200:
+                cands = gr.json().get("candidates", [])
+                if cands:
+                    parts = cands.get("content", {}).get("parts", [])
+                    if parts and parts.get("text"):
+                        return parts["text"].strip()
+        except Exception:
+            pass
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
@@ -73,12 +87,6 @@ def smart_ai(messages):
                 res = r.json().get("result", {}).get("response", "").strip()
                 if res: return res
         except Exception: pass
-    try:
-        conv = "\n".join([f"{m.get('role')}: {m.get('content')}" for m in messages[-6:]])[:600]
-        r2 = requests.get(f"https:{sl}{sl}text.pollinations.ai{sl}" + urllib.parse.quote(conv), params={"seed": random.randint(1, 99999)}, timeout=15)
-        if r2.status_code == 200 and "Free limit" not in r2.text and "404" not in r2.text and len(r2.text.strip()) > 2:
-            return r2.text.strip()
-    except Exception: pass
     return "أهلاً بك في DARK HORIZON AI! كيف يمكنني مساعدتك الآن؟"
 
 def apply_brand_logo(fpath):
@@ -94,7 +102,7 @@ def apply_brand_logo(fpath):
             lh = int(lg.height * (lw / lg.width))
             lg = lg.resize((lw, lh))
             base.paste(lg, (base.width - lw - 14, base.height - lh - 14), lg)
-            base.convert("RGB").save(fpath, quality=90)
+            base.convert("RGB").save(fpath, quality=96)
         except Exception: pass
 
 def generate_image_item(en_prompt, idx=0):
@@ -165,6 +173,28 @@ def fast_ar_to_en(text):
 
 def try_free_t2v(prompt_en, out_mp4):
     sl = chr(47)
+    g_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if g_key:
+        try:
+            veo_url = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}veo-2.0-generate-001:predictLongRunning?key={g_key}"
+            vr = requests.post(veo_url, json={"instances": [{"prompt": f"{prompt_en}, realistic live action motion, crisp 8k focus"}], "parameters": {"aspectRatio": "9:16"}}, timeout=20)
+            if vr.status_code == 200:
+                op_name = vr.json().get("name", "")
+                if op_name:
+                    for _ in range(12):
+                        time.sleep(4)
+                        op_r = requests.get(f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}{op_name}?key={g_key}", timeout=15).json()
+                        if op_r.get("done"):
+                            v_uri = op_r.get("response", {}).get("generateVideoResponse", {}).get("generatedSamples", [{}]).get("video", {}).get("uri", "")
+                            if v_uri:
+                                v_bytes = requests.get(f"{v_uri}&key={g_key}", timeout=30).content
+                                if len(v_bytes) > 25000:
+                                    open(out_mp4, "wb").write(v_bytes)
+                                    return True
+                            break
+        except Exception:
+            pass
+
     hf_tok = (get_keys("HF_TOKEN") or [None])
     # 1. الاتصال المباشر بأقوى مساحات الفيديو الحركي الواقعي المجانية (NVIDIA H100/A100)
     spaces = ("Wan-AI/Wan2.1", "Lightricks/LTX-Video-Distilled", "THUDM/CogVideoX-5B-Space")
