@@ -64,61 +64,50 @@ def apply_brand_logo(fpath):
 def generate_image_item(en_prompt, idx=0):
     sl = chr(47)
     seed = random.randint(10000, 9999999)
-    full_p = f"{en_prompt}, cinematic angle {idx+1}, hyperrealistic, dramatic lighting, 8k"
+    full_p = f"{en_prompt}, cinematic shot {idx+1}, hyperrealistic, dramatic lighting, 8k"
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
-    # 1. الأولوية القصوى لبطاقات Cloudflare GPU (10,000 طلب مجاني يومياً - 2 ثانية للصورة)
+    # 1. بطاقات Cloudflare GPU (10,000 طلب مجاني يومياً)
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        time.sleep(idx * 0.65)
-        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0", "@cf/lykon/dreamshaper-8-lcm")
+        time.sleep(idx * 0.5)
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
             payload = {"prompt": full_p[:240], "num_steps": 4} if "flux" in c_mdl else {"prompt": full_p[:240]}
             try:
-                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=22)
+                cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
-                    if "application/json" in cr.headers.get("Content-Type", ""):
+                    ct = cr.headers.get("Content-Type", "")
+                    if "json" in ct:
                         b64_img = cr.json().get("result", {}).get("image", "")
                         if b64_img:
                             open(fpath, "wb").write(base64.b64decode(b64_img))
                             apply_brand_logo(fpath)
                             return f"/media/{fn}"
-                    elif len(cr.content) > 5000:
+                    elif len(cr.content) > 4000:
                         open(fpath, "wb").write(cr.content)
                         apply_brand_logo(fpath)
                         return f"/media/{fn}"
             except Exception:
                 continue
 
-    # 2. Hugging Face GPU كخيار ثانٍ سريع
-    hf_keys = get_keys("HF_TOKEN")
-    for hft in hf_keys:
-        hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}black-forest-labs{sl}FLUX.1-schnell"
+    # 2. المحرك المفتوح المضمون (مع فاصل زمني يمنع بطاقة Free limit)
+    for attempt in range(2):
+        if idx > 0 or attempt > 0:
+            time.sleep(10.5)
+        p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed + attempt}"
         try:
-            hr = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=18)
-            if hr.status_code == 200 and len(hr.content) > 5000:
-                open(fpath, "wb").write(hr.content)
-                apply_brand_logo(fpath)
-                return f"/media/{fn}"
-        except Exception:
-            continue
-
-    # 3. التوليد التلقائي المضمون لجميع الصور بفاصل ذكي
-    time.sleep(idx * 2.5)
-    if True:
-        p_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
-        try:
-            r = requests.get(p_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-            if r.status_code == 200 and len(r.content) > 16000 and b"Free limit" not in r.content:
+            r = requests.get(p_url, headers={"User-Agent": f"Mozilla/5.0 (DH-Studio-{idx}-{attempt})"}, timeout=25)
+            if r.status_code == 200 and len(r.content) > 4500 and b"Free limit" not in r.content and b"rate limit" not in r.content.lower():
                 open(fpath, "wb").write(r.content)
                 apply_brand_logo(fpath)
                 return f"/media/{fn}"
         except Exception:
-            pass
+            continue
     return None
 
 async def make_voice(txt, mp3):
@@ -137,7 +126,7 @@ def generate_media(q, hist_ctx):
     if any("\u0600" <= c <= "\u06FF" for c in en_p) or len(en_p) < 5:
         en_p = "cinematic Arabian horse running in golden desert dunes at sunset, 8k"
 
-    if is_vid:
+    if is_vid or is_img:
         seed = random.randint(10000, 999999)
         script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً من جملتين بالعربية الفصحى بدون رموز."}, {"role": "user", "content": ctx_q}])
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
@@ -236,9 +225,18 @@ document.addEventListener("DOMContentLoaded", function(){
 @app.route("/doctor")
 def doctor():
     with db_lock: conn.execute("DELETE FROM messages WHERE content LIKE '%جاري%'"); conn.commit()
-    hf_ok = len(get_keys("HF_TOKEN")) > 0
-    cf_ok = bool(os.environ.get("CF_API_TOKEN", "").strip())
-    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي لـ DARK HORIZON AI:</b>\n• حالة الخادم: متصل ويعمل بكفاءة ✅\n• بطاقات Cloudflare GPU: {'مفعّلة (10,000 طلب/يوم) ✅' if cf_ok else 'غير مفعّلة ⚠️'}\n• توكن Hugging Face: {'مفعّل ✅' if hf_ok else 'وضع تلقائي مفتوح ✅'}\n• قاعدة البيانات والذاكرة: تم التنظيف الذاتي بنجاح ✅"})
+    sl = chr(47)
+    cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
+    cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
+    cf_stat = "غير مضاف ⚠️"
+    if cf_acc and cf_tok:
+        try:
+            t_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}@cf/black-forest-labs/flux-1-schnell"
+            tr = requests.post(t_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json={"prompt": "test", "num_steps": 1}, timeout=12)
+            cf_stat = "متصل ويعمل بقوة 100% ✅" if tr.status_code == 200 else f"تنبيه ({tr.status_code}): {tr.text[:60]} ⚠️"
+        except Exception as e:
+            cf_stat = f"خطأ اتصال: {str(e)[:40]} ⚠️"
+    return jsonify({"report": f"🩺 <b>تقرير الفحص الذاتي لـ DARK HORIZON AI:</b>\n• حالة الخادم: متصل ✅\n• بطاقات Cloudflare GPU: {cf_stat}\n• قاعدة البيانات: نظيفة ✅"})
 
 @app.route("/media/<path:fn>")
 def media(fn): return send_from_directory(WORK, fn)
@@ -290,7 +288,7 @@ def send_all():
     is_q = q.startswith(("هل", "لماذا", "كيف", "ما هو", "ما هي", "وش", "واش", "اين", "أين"))
     is_vid = not up_path and not is_q and any(w in q.lower() for w in ("فيديو", "video", "وثائقي", "فيلم", "ثوان", "ثانية"))
     is_img = not up_path and not is_q and any(w in q.lower() for w in ("صورة", "صور", "ارسم", "image", "draw", "عشر"))
-    if is_vid:
+    if is_vid or is_img:
         jid = f"j_{int(time.time())}_{random.randint(100,999)}"
         with db_lock: conn.execute("INSERT INTO jobs (jid, done, reply, media) VALUES (?, 0, '', '{}')", (jid,)); conn.commit()
         threading.Thread(target=run_media_job, args=(jid, sid, q, ctx), daemon=True).start()
