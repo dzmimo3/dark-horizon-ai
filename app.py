@@ -72,7 +72,8 @@ def generate_image_item(en_prompt, idx=0):
     cf_acc = os.environ.get("CF_ACCOUNT_ID", "").strip()
     cf_tok = os.environ.get("CF_API_TOKEN", "").strip()
     if cf_acc and cf_tok:
-        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/stabilityai/stable-diffusion-xl-base-1.0", "@cf/bytedance/stable-diffusion-xl-lightning")
+        time.sleep(idx * 0.65)
+        cf_mdls = ("@cf/black-forest-labs/flux-1-schnell", "@cf/bytedance/stable-diffusion-xl-lightning", "@cf/stabilityai/stable-diffusion-xl-base-1.0", "@cf/lykon/dreamshaper-8-lcm")
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
@@ -164,7 +165,9 @@ def generate_media(q, hist_ctx):
         urls = [u for u in ex.map(lambda i: generate_image_item(en_p, i), range(count)) if u]
     if len(urls) > 1:
         return f"🎨 <b>تم تصميم {len(urls)} صور سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
-    return "🎨 <b>تم تصميم الصورة بدقة سينمائية:</b>", {"imgs": urls}
+    if len(urls) == 1:
+        return "🎨 <b>تم تصميم الصورة بدقة سينمائية (DARK HORIZON FILMS LTD):</b>", {"imgs": urls}
+    return "⚠️ الخادم السحابي مشغول لحظياً، أعد إرسال الطلب وسيتم التصميم فوراً.", {}
 
 HTML = """<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>DARK HORIZON AI</title><style>
