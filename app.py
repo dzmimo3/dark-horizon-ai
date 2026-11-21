@@ -17,6 +17,35 @@ conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOIN
 conn.execute("CREATE TABLE IF NOT EXISTS jobs (jid TEXT PRIMARY KEY, done INTEGER, reply TEXT, media TEXT)")
 conn.commit()
 
+
+def sb_headers():
+    sk = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    return {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json", "Prefer": "return=representation"}
+
+def sb_db(method, table, params="", payload=None):
+    su = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    sk = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    if not su or not sk: return None
+    try:
+        r = requests.request(method, f"{su}/rest/v1/{table}{params}", headers=sb_headers(), json=payload, timeout=10)
+        if r.status_code in (200, 201, 204):
+            return r.json() if r.text else []
+    except Exception: pass
+    return None
+
+def upload_to_cloud_cdn(local_path, remote_name, mime="image/jpeg"):
+    su = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    sk = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    if not su or not sk or not os.path.exists(local_path): return None
+    try:
+        up_url = f"{su}/storage/v1/object/media/{remote_name}"
+        hdrs = {"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": mime, "x-upsert": "true"}
+        r = requests.post(up_url, headers=hdrs, data=open(local_path, "rb").read(), timeout=25)
+        if r.status_code in (200, 201):
+            return f"{su}/storage/v1/object/public/media/{remote_name}"
+    except Exception: pass
+    return None
+
 def get_keys(prefix):
     out = []
     for k in (prefix, f"{prefix}_1", f"{prefix}_2", f"{prefix}_3"):
@@ -321,7 +350,8 @@ def generate_media(q, hist_ctx):
             mode_lbl = "مشاهد سينمائية 8K"
         else:
             return "⚠️ الخادم السحابي مشغول لحظياً، أعد المحاولة الآن.", {}
-        return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({mode_lbl} - {int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": f"/media/{vid_fn}"}
+        cdn_vid = upload_to_cloud_cdn(vid_p, vid_fn, "video/mp4") or f"/media/{vid_fn}"
+        return f"🎬 <b>إنتاج DARK HORIZON FILMS LTD ({mode_lbl} - {int(req_dur)} ثانية):</b>\n\n🎙️ <b>السيناريو:</b>\n{script}", {"vid": cdn_vid}
 
     m_cnt = re.search(r"(\d+)", q)
     count = max(1, min(10, int(m_cnt.group(1)))) if m_cnt else (4 if any(w in low for w in ("صور", "معرض", "تشكيلة", "المزيد", "مزيد", "أخرى", "اخرى", "more", "شخصيات", "مشابهة")) else 1)
