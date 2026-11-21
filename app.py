@@ -112,7 +112,7 @@ def generate_image_item(en_prompt, idx=0):
         for step in range(len(cf_mdls)):
             c_mdl = cf_mdls[(idx + step) % len(cf_mdls)]
             cf_url = f"https:{sl}{sl}://cloudflare.com{sl}client{sl}v4{sl}accounts{sl}{cf_acc}{sl}ai{sl}run{sl}{c_mdl}"
-            payload = {"prompt": full_p[:240], "num_steps": 2} if "flux" in c_mdl else {"prompt": full_p[:240]}
+            payload = {"prompt": full_p[:240], "num_steps": 4, "width": 544, "height": 960} if "flux" in c_mdl else {"prompt": full_p[:240], "width": 544, "height": 960}
             try:
                 cr = requests.post(cf_url, headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"}, json=payload, timeout=25)
                 if cr.status_code == 200:
@@ -162,6 +162,20 @@ def fast_ar_to_en(text):
     return f"cinematic epic historical scene, {random.randint(1,999)}, 8k"
 
 
+
+def try_free_t2v(prompt_en, out_mp4):
+    sl = chr(47)
+    # أ. محاولة Hugging Face Inference API بنماذج الفيديو السريعة
+    for hft in get_keys("HF_TOKEN"):
+        for vm in ("Lightricks/LTX-Video", "Wan-AI/Wan2.1-T2V-14B", "ali-vilab/text-to-video-ms-1.7b"):
+            try:
+                vr = requests.post(f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{vm}", headers={"Authorization": f"Bearer {hft}"}, json={"inputs": f"{prompt_en}, dynamic realistic camera and subject motion, 24fps"}, timeout=45)
+                if vr.status_code == 200 and len(vr.content) > 25000:
+                    open(out_mp4, "wb").write(vr.content)
+                    return True
+            except Exception: continue
+    return False
+
 def try_free_lipsync(img_path, aud_path, out_mp4):
     sl = chr(47)
     for sp in (f"https:{sl}{sl}vinthony-sadtalker.hf.space", f"https:{sl}{sl}fffiloni-sadtalker.hf.space"):
@@ -195,7 +209,8 @@ def generate_media(q, hist_ctx):
         is_talk = any(w in low for w in ("يتكلم", "تتكلم", "متكلم", "شفاه", "يقول", "تقول", "مذيع", "شخصية", "talk", "speak"))
         script = smart_ai([{"role": "system", "content": "اكتب تعليقاً صوتياً وثائقياً مشوقاً من جملتين بالعربية الفصحى يصف موضوع الطلب بدقة بدون رموز."}, {"role": "user", "content": q}])
         if "أهلاً بك" in script or len(script) < 10:
-            script = f"مشاهد سينمائية حية تأخذنا في رحلة بصرية مذهلة حول {q}."
+            clean_topic = re.sub(r"(اريد|انشيء|فيديو|فلم|فيلم)", "", q).strip() or "التاريخ والحضارة"
+            script = f"في عمق {clean_topic}، تتجلى أعظم المشاهد والبطولات التي خلدتها الذاكرة عبر العصور."
         aud_p = os.path.join(WORK, f"Voice_{seed}.mp3")
         try: asyncio.run(make_voice(script, aud_p))
         except Exception: pass
@@ -210,10 +225,12 @@ def generate_media(q, hist_ctx):
             if u: sc_urls.append(u)
         v_imgs = [os.path.join(WORK, u.replace("/media/", "")) for u in sc_urls if os.path.exists(os.path.join(WORK, u.replace("/media/", "")))]
 
-        # 2. إذا طلب شخصية متكلمة وتوفرت صورة: محاولة تحريك الشفاه عبر SadTalker
+        # 2. محاولة توليد فيديو حركي حقيقي (AI Motion) أو تحريك الشفاه (Lip-Sync)
         if is_talk and has_aud and v_imgs:
             if try_free_lipsync(v_imgs, aud_p, raw_vid):
                 got_real, mode_lbl = True, "تحريك شفاه وكلام (AI Lip-Sync)"
+        if not got_real and try_free_t2v(en_p, raw_vid):
+            got_real, mode_lbl = True, "فيديو حركي بالذكاء الاصطناعي (AI Motion)"
 
         if got_real and os.path.exists(raw_vid):
             cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", raw_vid] + (["-i", aud_p] if has_aud else []) + ["-vf", "scale=540:960:force_original_aspect_ratio=increase,crop=540:960", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"] + (["-c:a", "aac"] if has_aud else []) + ["-t", f"{req_dur:.2f}", vid_p]
