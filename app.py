@@ -323,26 +323,215 @@ header{padding:12px 16px;background:#131314;display:flex;justify-content:space-b
 .lb-btn{background:#1e1f20;color:#e3e3e3;border:1px solid rgba(255,255,255,0.2);padding:10px 20px;border-radius:24px;text-decoration:none;font-size:14px;font-weight:600;cursor:pointer}
 </style></head><body>
 <header>
-  <button type="button" id="histBtn" class="h-icon" title="المحادثات">☰</button>
+  <button type="button" id="histBtn" onclick="openDrawer()" class="h-icon" title="المحادثات">☰</button>
   <div class="brand">DARK HORIZON <span class="badge">AI</span></div>
   <div style="display:flex;gap:4px">
-    <button type="button" id="docBtn" class="h-icon" title="فحص النظام">🩺</button>
-    <button type="button" id="newBtn" class="h-icon" title="محادثة جديدة">✎</button>
+    <button type="button" id="docBtn" onclick="runDoctor()" class="h-icon" title="فحص النظام">🩺</button>
+    <button type="button" id="newBtn" onclick="startNew()" class="h-icon" title="محادثة جديدة">✎</button>
   </div>
 </header>
-<div id="drawer"><div class="drawer-panel"><button type="button" id="drawerNew" class="new-chat-pill">✎ محادثة جديدة</button><div id="sessList"></div></div></div>
-<div id="lightbox"><img id="lbImg" src=""><div class="lb-bar"><a id="lbDl" class="lb-btn" download="DARK_HORIZON_8K.jpg">⬇️ حفظ الصورة</a><button type="button" id="lbClose" class="lb-btn">✕ إغلاق</button></div></div>
+<div id="drawer" onclick="if(event.target.id==='drawer')this.style.display='none'"><div class="drawer-panel"><button type="button" id="drawerNew" onclick="startNew()" class="new-chat-pill">✎ محادثة جديدة</button><div id="sessList"></div></div></div>
+<div id="lightbox" onclick="if(event.target.id==='lightbox')closeLightbox()"><img id="lbImg" src=""><div class="lb-bar"><a id="lbDl" class="lb-btn" download="DARK_HORIZON_8K.jpg">⬇️ حفظ الصورة</a><button type="button" id="lbClose" onclick="closeLightbox()" class="lb-btn">✕ إغلاق</button></div></div>
 <div id="chat"></div>
 <div class="footer">
   <div id="fileBar" style="display:none;max-width:780px;margin:0 auto 8px;background:#1e1f20;color:#a8c7fa;padding:6px 14px;border-radius:16px;font-size:13px;justify-content:space-between;align-items:center"></div>
   <div class="capsule">
-    <input type="file" id="fileIn" accept="image/*,.pdf,.txt" style="display:none">
-    <button type="button" id="plusBtn" class="c-btn">+</button>
-    <input type="text" id="q" placeholder="اسأل DARK HORIZON AI...">
-    <button type="button" id="sendBtn" class="c-btn">↑</button>
+    <input type="file" id="fileIn" onchange="onFilePicked()" accept="image/*,.pdf,.txt" style="display:none">
+    <button type="button" id="plusBtn" onclick="document.getElementById('fileIn').click()" class="c-btn">+</button>
+    <input type="text" id="q" onkeydown="if(event.key==='Enter'){event.preventDefault();sendMessage();}" placeholder="اسأل DARK HORIZON AI...">
+    <button type="button" id="sendBtn" onclick="sendMessage()" class="c-btn">↑</button>
   </div>
 </div>
-<script src="/ui_logic.js"></script></body></html>"""
+<script>
+var sid = localStorage.getItem("dh_sid") || null;
+
+function openLightbox(src, idx) {
+  var lb = document.getElementById("lightbox");
+  var im = document.getElementById("lbImg");
+  var dl = document.getElementById("lbDl");
+  if (!lb || !im || !dl) return;
+  im.src = src;
+  dl.href = src;
+  dl.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
+  lb.style.display = "flex";
+}
+
+function closeLightbox() {
+  var lb = document.getElementById("lightbox");
+  if (lb) lb.style.display = "none";
+}
+
+function dlAllImgs(btn) {
+  try {
+    var arr = JSON.parse(decodeURIComponent(btn.getAttribute("data-urls")));
+    for (var i = 0; i < arr.length; i++) {
+      (function(u, idx) {
+        setTimeout(function() {
+          var a = document.createElement("a");
+          a.href = u;
+          a.download = "DARK_HORIZON_" + (idx + 1) + ".jpg";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, idx * 450);
+      })(arr[i], i);
+    }
+  } catch (e) {}
+}
+
+function addBubble(role, content, media) {
+  var chat = document.getElementById("chat");
+  var d = document.createElement("div");
+  d.className = "msg " + (role === "User" ? "user" : "bot");
+  var h = content || "";
+  if (media && media.vid) {
+    h += '<div class="img-wrap"><video controls playsinline src="' + media.vid + '"></video><a class="glass-dl" href="' + media.vid + '" download="DARK_HORIZON_VIDEO.mp4">⬇️</a></div>';
+  }
+  if (media && media.imgs && media.imgs.length > 0) {
+    if (media.imgs.length > 1) {
+      var ls = encodeURIComponent(JSON.stringify(media.imgs));
+      h += '<div><button type="button" class="dl-pill" data-urls="' + ls + '" onclick="dlAllImgs(this)">⬇️ حفظ جميع الصور (' + media.imgs.length + ')</button></div><div class="img-grid">';
+      for (var i = 0; i < media.imgs.length; i++) {
+        var u = media.imgs[i];
+        h += '<div class="img-wrap" style="margin-top:0"><img src="' + u + '" style="aspect-ratio:9/16;object-fit:cover" onclick="openLightbox(this.src,' + i + ')"><a class="glass-dl" href="' + u + '" download="DARK_HORIZON_' + (i + 1) + '.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+      }
+      h += '</div>';
+    } else {
+      var u0 = media.imgs[0];
+      h += '<div class="img-wrap"><img src="' + u0 + '" onclick="openLightbox(this.src,0)"><a class="glass-dl" href="' + u0 + '" download="DARK_HORIZON_8K.jpg" onclick="event.stopPropagation()">⬇️</a></div>';
+    }
+  }
+  d.innerHTML = h;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+function safeJson(res) {
+  return res.text().then(function(t) {
+    try { return JSON.parse(t); } catch (e) { throw new Error("الخادم يستيقظ، أعد المحاولة الآن."); }
+  });
+}
+
+function runDoctor() {
+  var w = addBubble("AI", "🩺 جاري فحص الخوادم...", {});
+  fetch("/doctor").then(safeJson).then(function(d) { w.innerHTML = d.report; }).catch(function(e) { w.textContent = "⚠️ " + e.message; });
+}
+
+function openDrawer() {
+  document.getElementById("drawer").style.display = "block";
+  loadSessions();
+}
+
+function loadSessions() {
+  fetch("/sessions").then(safeJson).then(function(list) {
+    var box = document.getElementById("sessList");
+    if (!box) return;
+    box.innerHTML = "";
+    for (var i = 0; i < list.length; i++) {
+      (function(s) {
+        var row = document.createElement("div");
+        row.className = "s-item";
+        var sp = document.createElement("span");
+        sp.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+        sp.textContent = s.title;
+        sp.onclick = function() {
+          sid = s.id;
+          localStorage.setItem("dh_sid", sid);
+          document.getElementById("drawer").style.display = "none";
+          loadMessages();
+        };
+        var del = document.createElement("button");
+        del.textContent = "✕";
+        del.style.cssText = "background:none;border:none;color:#f28b82;font-size:15px;cursor:pointer;padding:0 4px";
+        del.onclick = function(ev) {
+          ev.stopPropagation();
+          fetch("/sessions/" + s.id, { method: "DELETE" }).then(function() {
+            if (sid == s.id) startNew();
+            loadSessions();
+          });
+        };
+        row.appendChild(sp);
+        row.appendChild(del);
+        box.appendChild(row);
+      })(list[i]);
+    }
+  }).catch(function() {});
+}
+
+function startNew() {
+  sid = null;
+  localStorage.removeItem("dh_sid");
+  document.getElementById("drawer").style.display = "none";
+  document.getElementById("chat").innerHTML = '<div class="msg bot">✨ أهلاً بك في <b>DARK HORIZON AI</b>. كيف يمكنني مساعدتك اليوم؟</div>';
+}
+
+function loadMessages() {
+  if (!sid) { startNew(); return; }
+  fetch("/messages/" + sid).then(safeJson).then(function(msgs) {
+    if (!msgs || msgs.length === 0) { startNew(); return; }
+    var chat = document.getElementById("chat");
+    chat.innerHTML = "";
+    for (var i = 0; i < msgs.length; i++) { addBubble(msgs[i].role, msgs[i].content, msgs[i].media); }
+  }).catch(function() { startNew(); });
+}
+
+function onFilePicked() {
+  var fEl = document.getElementById("fileIn");
+  var fb = document.getElementById("fileBar");
+  if (fEl.files && fEl.files.length > 0) {
+    fb.style.display = "flex";
+    fb.innerHTML = "<span>📎 " + fEl.files[0].name + "</span><span style='color:#f28b82;font-weight:bold;cursor:pointer' onclick='clearFile()'>✕</span>";
+  }
+}
+
+function clearFile() {
+  document.getElementById("fileIn").value = "";
+  document.getElementById("fileBar").style.display = "none";
+}
+
+function sendMessage() {
+  var qEl = document.getElementById("q");
+  var fEl = document.getElementById("fileIn");
+  var txt = qEl.value.trim();
+  var file = (fEl.files && fEl.files.length > 0) ? fEl.files[0] : null;
+  if (!txt && !file) return;
+  addBubble("User", txt || ("📎 " + file.name), {});
+  var waitBox = addBubble("AI", "⚡ جاري التفكير...", {});
+  var fd = new FormData();
+  if (sid) fd.append("sid", sid);
+  fd.append("q", txt);
+  if (file) fd.append("file", file);
+  qEl.value = "";
+  clearFile();
+  fetch("/send_all", { method: "POST", body: fd }).then(safeJson).then(function(d) {
+    sid = d.sid;
+    localStorage.setItem("dh_sid", sid);
+    if (d.job_id) {
+      waitBox.textContent = "🎨🎬 جاري التصميم والإخراج السينمائي...";
+      var iv = setInterval(function() {
+        fetch("/job/" + d.job_id).then(safeJson).then(function(st) {
+          if (st.done) {
+            clearInterval(iv);
+            waitBox.remove();
+            addBubble("AI", st.reply, st.media);
+            loadSessions();
+          }
+        }).catch(function() {});
+      }, 1500);
+    } else {
+      waitBox.remove();
+      addBubble("AI", d.reply, d.media);
+      loadSessions();
+    }
+  }).catch(function(err) { waitBox.textContent = "⚠️ " + err.message; });
+}
+
+window.addEventListener("load", function() {
+  loadSessions();
+  loadMessages();
+});
+</script></body></html>"""
 
 @app.route("/ui_logic.js")
 def ui_logic():
