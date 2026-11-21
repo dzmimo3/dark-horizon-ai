@@ -50,14 +50,16 @@ def generate_image_item(en_prompt, idx=0):
     fn = f"OMNI_{int(time.time())}_{seed}.jpg"
     fpath = os.path.join(WORK, fn)
 
-    hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}black-forest-labs{sl}FLUX.1-schnell"
+    models = ("black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0")
     for hft in get_keys("HF_TOKEN"):
-        try:
-            hr = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=20)
-            if hr.status_code == 200 and len(hr.content) > 5000:
-                open(fpath, "wb").write(hr.content)
-                return f"/media/{fn}"
-        except Exception: continue
+        for mdl in models:
+            hf_url = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{mdl}"
+            try:
+                hr = requests.post(hf_url, headers={"Authorization": f"Bearer {hft}"}, json={"inputs": full_p[:240]}, timeout=25)
+                if hr.status_code == 200 and len(hr.content) > 5000:
+                    open(fpath, "wb").write(hr.content)
+                    return f"/media/{fn}"
+            except Exception: continue
 
     direct_url = f"https:{sl}{sl}image.pollinations.ai{sl}prompt{sl}" + urllib.parse.quote(full_p[:200]) + f"?width=540&height=960&nologo=true&seed={seed}"
     try:
