@@ -1,10 +1,9 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import os, io, json, time, base64, random, urllib.parse, sqlite3, threading, subprocess, requests
 from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 db_lock = threading.Lock()
-DB_PATH = "/tmp/dh_v6.db"
+DB_PATH = "/tmp/dh_final.db"
 MEDIA_DIR = "/tmp/dh_media"
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
@@ -21,52 +20,55 @@ init_db()
 
 def get_key(name):
     val = os.environ.get(name, "").strip()
-    return first([x.strip() for x in val.split(",") if x.strip()], "")
+    return first(tuple(x.strip() for x in val.split(",") if x.strip()), "")
 
 def search_web(q):
+    res = []
+    if any(w in q.lower() for w in ("طقس", "حرارة", "جو", "weather", "الجلفة")):
+        try:
+            w = requests.get("https://open-meteo.com", timeout=5).json().get("current_weather", {})
+            if w: res.append(f"الطقس الحي في الجلفة: {w.get('temperature')}°C، الرياح {w.get('windspeed')} كم/س.")
+        except Exception: pass
     tv = get_key("TAVILY_API_KEY")
-    if not tv: return ""
-    try:
-        r = requests.post("https://tavily.com", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=4)
-        if r.status_code == 200:
-            d = r.json()
-            res = [d["answer"]] if d.get("answer") else []
-            for it in d.get("results", [])[:2]:
-                res.append(f"- {it.get('title','')}: {it.get('content','')[:160]}")
-            return "\n".join(res)
-    except Exception: pass
-    return ""
+    if tv:
+        try:
+            r = requests.post("https://tavily.com", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=8)
+            if r.status_code == 200:
+                d = r.json()
+                if d.get("answer"): res.append(d["answer"])
+                for it in d.get("results", [])[:2]: res.append(f"- {it.get('title','')}: {it.get('content','')[:150]}")
+        except Exception: pass
+    return "\n".join(res)
 
 def ai_brain(messages, img_b64=None):
     sys_msg = (
-        "أنت مساعد ذكاء اصطناعي خبير تتحدث بأسلوب طبيعي، ذكي، ومباشر تماماً مثل ChatGPT و Gemini. "
-        "أجب بوضوح وعمق وتفاعل مع كلام المستخدم وسياق المحادثة بدون أي عبارات ترحيبية مكررة."
+        "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير تتحدث بأسلوب إنساني طبيعي، ذكي، وواضح تماماً مثل ChatGPT. "
+        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة، وتجيب مباشرة بدون تكرار عبارات الترحيب."
     )
-    clean = [{"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content", ""))} for m in messages if m.get("content")]
-    if not clean: clean = [{"role": "user", "content": "مرحباً"}]
-    errors = []
+    clean = tuple({"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content", ""))} for m in messages if m.get("content"))
+    if not clean: clean = ({"role": "user", "content": "مرحباً"},)
+    last_6 = clean[-6:]
+    errs = []
 
-    # 1. Google Gemini 2.5 Flash
+    # 1. Google Gemini 2.5 Flash (تحليل الصور والنصوص)
     gk = get_key("GEMINI_API_KEY")
     if gk:
         try:
             g_contents = []
-            for idx, m in enumerate(clean[-6:]):
+            for idx, m in enumerate(last_6):
                 parts = [{"text": m["content"]}]
-                if img_b64 and idx == len(clean[-6:]) - 1 and m["role"] == "user":
+                if img_b64 and idx == len(last_6) - 1 and m["role"] == "user":
                     raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
                     parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
                 g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
             r = requests.post(f"https://googleapis.com{gk}",
-                              json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=12)
+                              json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=14)
             if r.status_code == 200:
-                c0 = first(r.json().get("candidates", []), {})
-                txt = first(c0.get("content", {}).get("parts", []), {}).get("text", "").strip()
+                c0 = first(r.json().get("candidates", ()), {})
+                txt = first(c0.get("content", {}).get("parts", ()), {}).get("text", "").strip()
                 if txt: return txt
-            else:
-                errors.append(f"Gemini:{r.status_code}")
-        except Exception as e:
-            errors.append("Gemini:Err")
+            else: errs.append(f"Gemini:{r.status_code}")
+        except Exception: errs.append("Gemini:Err")
 
     # 2. Groq Llama 3.3 70B
     gq = get_key("GROQ_API_KEY")
@@ -74,14 +76,12 @@ def ai_brain(messages, img_b64=None):
         try:
             r = requests.post("https://groq.com",
                               headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
-                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=10)
+                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=10)
             if r.status_code == 200:
-                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
                 if txt: return txt
-            else:
-                errors.append(f"Groq:{r.status_code}")
-        except Exception:
-            errors.append("Groq:Err")
+            else: errs.append(f"Groq:{r.status_code}")
+        except Exception: errs.append("Groq:Err")
 
     # 3. OpenRouter Free
     ork = get_key("OPENROUTER_API_KEY")
@@ -89,14 +89,12 @@ def ai_brain(messages, img_b64=None):
         try:
             r = requests.post("https://openrouter.ai",
                               headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
-                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=12)
+                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=12)
             if r.status_code == 200:
-                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
                 if txt: return txt
-            else:
-                errors.append(f"OpenRouter:{r.status_code}")
-        except Exception:
-            errors.append("OpenRouter:Err")
+            else: errs.append(f"OR:{r.status_code}")
+        except Exception: errs.append("OR:Err")
 
     # 4. Pollinations AI
     pk = get_key("POLLINATIONS_API_KEY")
@@ -104,46 +102,26 @@ def ai_brain(messages, img_b64=None):
         try:
             r = requests.post("https://pollinations.ai",
                               headers={"Authorization": f"Bearer {pk}", "Content-Type": "application/json"},
-                              json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=12)
+                              json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=12)
             if r.status_code == 200:
-                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
                 if txt: return txt
-            else:
-                errors.append(f"Poll:{r.status_code}")
-        except Exception:
-            errors.append("Poll:Err")
+            else: errs.append(f"Poll:{r.status_code}")
+        except Exception: errs.append("Poll:Err")
 
-    # 5. Cloudflare Workers AI
-    cf_id, cf_tok = get_key("CF_ACCOUNT_ID"), get_key("CF_API_TOKEN")
-    if cf_id and cf_tok:
-        try:
-            r = requests.post(f"https://cloudflare.com{cf_id}/ai/run/@cf/meta/llama-3.1-8b-instruct",
-                              headers={"Authorization": f"Bearer {cf_tok}"},
-                              json={"messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=12)
-            if r.status_code == 200:
-                txt = r.json().get("result", {}).get("response", "").strip()
-                if txt: return txt
-            else:
-                errors.append(f"CF:{r.status_code}")
-        except Exception:
-            errors.append("CF:Err")
-
-    err_info = " | ".join(errors) if errors else "لا توجد مفاتيح مفعّلة في Render"
-    return f"⚠️ تعذر الاتصال بالخوادم حالياً ({err_info})."
+    return f"⚠️ تعذر الاتصال بالخوادم ({' | '.join(errs) or 'يرجى التحقق من المفاتيح في Render'})."
 
 def create_image(prompt):
     clean_q = prompt.strip()
     if len(clean_q) < 10 or clean_q in ("صور", "صورة", "ارسم"):
         en_p = "majestic Arabian horse galloping across golden desert dunes at sunset, ultra realistic 8k DSLR photography, natural lighting"
     else:
-        en_p = ai_brain([{"role": "user", "content": f"Translate into a modest, ultra-realistic 8K English photography prompt (ONLY English words, no intro): {clean_q}"}])
+        en_p = ai_brain(({"role": "user", "content": f"Translate into a modest, ultra-realistic 8K English photography prompt (ONLY English words, no intro): {clean_q}"},))
         if not en_p or en_p.startswith("⚠️"):
             en_p = "cinematic ultra realistic 8k landscape photography, golden hour lighting, sharp focus"
-
     fn = f"dh_img_{int(time.time())}.jpg"
     fpath = os.path.join(MEDIA_DIR, fn)
 
-    # 1. Cloudflare FLUX.1 (10,000 طلب/يوم)
     cf_id, cf_tok = get_key("CF_ACCOUNT_ID"), get_key("CF_API_TOKEN")
     if cf_id and cf_tok:
         try:
@@ -155,7 +133,6 @@ def create_image(prompt):
                 return f"data:image/jpeg;base64,{b64}"
         except Exception: pass
 
-    # 2. Pollinations Official Gateway
     pk = get_key("POLLINATIONS_API_KEY")
     if pk:
         try:
@@ -165,20 +142,6 @@ def create_image(prompt):
                 open(fpath, "wb").write(r.content)
                 return "data:image/jpeg;base64," + base64.b64encode(r.content).decode("utf-8")
         except Exception: pass
-
-    # 3. Google Imagen 3
-    gk = get_key("GEMINI_API_KEY")
-    if gk:
-        try:
-            r = requests.post(f"https://googleapis.com{gk}",
-                              json={"instances": [{"prompt": en_p[:260]}], "parameters": {"sampleCount": 1}}, timeout=25)
-            if r.status_code == 200:
-                b64 = first(r.json().get("predictions", []), {}).get("bytesBase64Encoded")
-                if b64:
-                    open(fpath, "wb").write(base64.b64decode(b64))
-                    return f"data:image/jpeg;base64,{b64}"
-        except Exception: pass
-
     return None
 
 def create_video(prompt, attached_img_b64=None):
@@ -190,7 +153,7 @@ def create_video(prompt, attached_img_b64=None):
         open(img_path, "wb").write(base64.b64decode(attached_img_b64.split(",", 1).pop()))
     else:
         create_image(prompt)
-        imgs = sorted([f for f in os.listdir(MEDIA_DIR) if f.startswith("dh_img_")])
+        imgs = sorted(f for f in os.listdir(MEDIA_DIR) if f.startswith("dh_img_"))
         if imgs: img_path = os.path.join(MEDIA_DIR, imgs.pop())
     if img_path and os.path.exists(img_path):
         cmd = ["ffmpeg", "-y", "-loop", "1", "-i", img_path, "-vf", "scale=1280:720,zoompan=z='min(zoom+0.0015,1.25)':d=125:s=1280x720", "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", fpath]
@@ -251,7 +214,7 @@ function pickFile(acc,tp){document.getElementById('plusMenu').classList.remove('
 function quickPrompt(txt){document.getElementById('plusMenu').classList.remove('show');const q=document.getElementById('q');q.value=txt;q.focus();}
 function clearAttach(){attData=null;attType=null;attName='';document.getElementById('preview-bar').style.display='none';}
 function handleFile(inp){
-  const file=inp.files;if(!file)return;attName=file.name;
+  const file=inp.files.item(0);if(!file)return;attName=file.name;
   const reader=new FileReader();
   reader.onload=e=>{attData=e.target.result;document.getElementById('prev-name').textContent='📎 '+attName;document.getElementById('preview-bar').style.display='flex';};
   if(attType==='doc')reader.readAsText(file);else reader.readAsDataURL(file);
@@ -298,7 +261,7 @@ def api_chat():
             c.execute("INSERT INTO messages (session_id, role, content) VALUES (?, 'USER', ?)", (sid, full_user_text or "صورة مرفقة"))
             rows = c.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id ASC", (sid,)).fetchall()
             c.commit(); c.close()
-        hist = [{"role": first(r), "content": list(r).pop()} for r in rows]
+        hist = [{"role": first(r), "content": tuple(r).pop()} for r in rows]
         low, media = text.lower(), {}
         if any(w in low for w in ("فيديو", "مقطع", "انميشن", "تحريك", "video", "cinema")):
             vid = create_video(text, att_data if att_type == "img" else None)
