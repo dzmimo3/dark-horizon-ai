@@ -157,9 +157,29 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
         var gl = cv.getContext('webgl', {preserveDrawingBuffer: true});
         var vsSrc = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }';
         var fsSrc = 'precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; varying vec2 v_uv;' +
-          'void main(){ vec2 uv = v_uv; float z = (u_mode == 0) ? (1.0 + u_prog * 0.14) : (1.14 - u_prog * 0.14); uv = (uv - 0.5) / z + 0.5;' +
-          'uv.x += sin(uv.y * 5.0 + u_time * 2.2) * 0.0045; uv.y += cos(uv.x * 5.0 + u_time * 1.8) * 0.0045;' +
-          'vec4 col = texture2D(u_tex, clamp(uv, 0.002, 0.998)); float vig = smoothstep(0.95, 0.35, length(v_uv - 0.5)); col.rgb *= mix(0.7, 1.08, vig); gl_FragColor = col; }';
+          'void main(){' +
+          '  vec2 uv = v_uv;' +
+          '  float tiltX = sin(u_time * 1.4 + float(u_mode)) * 0.025;' +
+          '  float tiltY = cos(u_time * 1.1) * 0.02;' +
+          '  float z = (u_mode == 0) ? (1.03 + u_prog * 0.16) : (1.19 - u_prog * 0.16);' +
+          '  uv = (uv - 0.5) / z + 0.5 + vec2(tiltX, tiltY) * (1.0 - length(v_uv - 0.5));' +
+          '  float impact = smoothstep(0.88, 1.0, sin(u_prog * 3.14159));' +
+          '  uv.x += sin(u_time * 38.0) * 0.004 * impact;' +
+          '  uv.y += cos(u_time * 34.0) * 0.004 * impact;' +
+          '  float wind = sin(uv.y * 9.0 - u_time * 4.5) * 0.005 * smoothstep(0.2, 0.9, uv.x);' +
+          '  uv.x += wind;' +
+          '  vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997));' +
+          '  float rShift = texture2D(u_tex, clamp(uv + vec2(0.0035 * impact, 0.0), 0.003, 0.997)).r;' +
+          '  float bShift = texture2D(u_tex, clamp(uv - vec2(0.0035 * impact, 0.0), 0.003, 0.997)).b;' +
+          '  col.r = mix(col.r, rShift, 0.65); col.b = mix(col.b, bShift, 0.65);' +
+          '  float ray = smoothstep(0.75, 0.0, abs((v_uv.x - 0.3) + (v_uv.y - 0.2) * 0.6 + sin(u_time * 0.8) * 0.2));' +
+          '  col.rgb += vec3(0.16, 0.11, 0.05) * ray * 0.55;' +
+          '  float angle = atan(v_uv.y - 0.5, v_uv.x - 0.5);' +
+          '  float speedLines = smoothstep(0.75, 1.0, sin(angle * 48.0 + u_time * 15.0)) * smoothstep(0.32, 0.72, length(v_uv - 0.5));' +
+          '  col.rgb += vec3(0.85, 0.9, 1.0) * speedLines * 0.14 * impact;' +
+          '  float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5));' +
+          '  col.rgb *= mix(0.65, 1.12, vig);' +
+          '  gl_FragColor = col; }';
         function mkSh(tp, sr){ var sh = gl.createShader(tp); gl.shaderSource(sh, sr); gl.compileShader(sh); return sh; }
         var prog = gl.createProgram(); gl.attachShader(prog, mkSh(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(prog, mkSh(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(prog); gl.useProgram(prog);
         var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -198,7 +218,7 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
         rec.start();
 
         var uTime = gl.getUniformLocation(prog, 'u_time'), uProg = gl.getUniformLocation(prog, 'u_prog'), uMode = gl.getUniformLocation(prog, 'u_mode');
-        var pts = Array.from({length: 28}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.2, a: 0.35+Math.random()*0.55}; });
+        var pts = Array.from({length: 45}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.2, a: 0.35+Math.random()*0.55}; });
         var totalFrames = targetSec * 30, perScene = Math.max(Math.floor(totalFrames / texList.length), 30), fc = 0;
 
         await new Promise(function(res){
