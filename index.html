@@ -31,6 +31,7 @@ img,video{max-width:100%;border-radius:14px;margin-top:12px;display:block}
 <div class="studio-bar">
   <select id="vidDur"><option value="5">⏱️ فيديو: 5 ثوانٍ</option><option value="10" selected>⏱️ فيديو: 10 ثوانٍ</option><option value="15">⏱️ فيديو: 15 ثانية</option><option value="20">⏱️ فيديو: 20 ثانية</option><option value="30">⏱️ فيديو: 30 ثانية</option></select>
   <select id="aspectSel"><option value="1:1">📐 مربع 1:1</option><option value="16:9">🖥️ يوتيوب 16:9</option><option value="9:16">📱 ريلز/تيك توك 9:16</option></select>
+  <select id="filterSel"><option value="0">🎨 فلتر: سينمائي طبيعي</option><option value="1">🔥 فلتر: ذهبي دافئ</option><option value="2">🎬 فلتر: أبيض وأسود درامي</option><option value="3">🌌 فلتر: نيون ليلي</option></select>
 </div>
 <div id="chat"></div>
 <div class="dock">
@@ -189,7 +190,7 @@ window.addEventListener('beforeinstallprompt', function(e){
 
           // تهيئة مظللات الرسوميات (Vertex & Fragment GLSL Shaders)
           var vsSrc = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }';
-          var fsSrc = 'precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; varying vec2 v_uv;' +
+          var fsSrc = 'precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; uniform int u_flt; varying vec2 v_uv;' +
             'void main(){' +
             '  vec2 uv = v_uv;' +
             '  float z = (u_mode == 0) ? (1.0 + u_prog * 0.14) : (1.14 - u_prog * 0.14);' +
@@ -229,14 +230,29 @@ window.addEventListener('beforeinstallprompt', function(e){
           // طبقة النصوص والجزيئات فوق طبقة WebGL
           var hud = document.createElement('canvas'); hud.width = dims.w; hud.height = dims.h;
           var hctx = hud.getContext('2d');
-          var rec = new MediaRecorder(hud.captureStream(30)), chunks = [];
+          var actx = new (window.AudioContext || window.webkitAudioContext)();
+          var dest = actx.createMediaStreamDestination();
+          var masterGain = actx.createGain(); masterGain.gain.value = 0.14; masterGain.connect(dest);
+          var notes = [130.81, 164.81, 196.00, 246.94, 261.63];
+          var oscs = notes.map(function(freq, idx){
+            var o = actx.createOscillator(), g = actx.createGain();
+            o.type = idx % 2 === 0 ? 'sine' : 'triangle';
+            o.frequency.value = freq;
+            g.gain.value = 0.18 / (idx + 1);
+            o.connect(g); g.connect(masterGain); o.start();
+            return o;
+          });
+          var vStream = hud.captureStream(30);
+          dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
+          var mimeOut = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+          var rec = new MediaRecorder(vStream, {mimeType: mimeOut}), chunks = [];
           rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
-          var doneRec = new Promise(function(res){ rec.onstop = function(){ res(URL.createObjectURL(new Blob(chunks, {type:'video/webm'}))); }; });
+          var doneRec = new Promise(function(res){ rec.onstop = function(){ oscs.forEach(function(o){ try{o.stop();}catch(ex){} }); try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
           rec.start();
 
           var uTime = gl.getUniformLocation(prog, 'u_time');
           var uProg = gl.getUniformLocation(prog, 'u_prog');
-          var uMode = gl.getUniformLocation(prog, 'u_mode');
+          var uMode = gl.getUniformLocation(prog, 'u_mode'); var uFlt = gl.getUniformLocation(prog, 'u_flt'); var fltVal = document.getElementById('filterSel') ? parseInt(document.getElementById('filterSel').value, 10) : 0;
           var pts = Array.from({length: 30}, function(){ return {x: Math.random()*hud.width, y: Math.random()*hud.height, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.2, a: 0.35+Math.random()*0.55}; });
 
           var totalFrames = targetSec * 30, perScene = Math.max(Math.floor(totalFrames / texList.length), 30), fc = 0;
@@ -248,7 +264,7 @@ window.addEventListener('beforeinstallprompt', function(e){
               gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
               gl.uniform1f(uTime, fc * 0.033);
               gl.uniform1f(uProg, lp);
-              gl.uniform1i(uMode, idx % 2);
+              gl.uniform1i(uMode, idx % 2); gl.uniform1i(uFlt, fltVal);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
               hctx.clearRect(0, 0, hud.width, hud.height);
