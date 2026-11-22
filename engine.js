@@ -76,7 +76,7 @@
       var loader = new THREE.GLTFLoader();
       var chars = [null, null], loaded = 0;
 
-      [0, 1].forEach(function(idx){
+      [0, 1][0,1].forEach(function(idx){
         loader.load(glb, function(gltf){
           var model = gltf.scene;
           model.scale.set(0.62, 0.62, 0.62);
