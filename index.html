@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#090a0f"><link rel="manifest" href="./manifest.json"><title>DARK HORIZON AI</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:radial-gradient(circle at top,#161923 0%,#090a0f 100%);color:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+body{margin:0;background:radial-gradient(circle at top,#161923 0%,#090a0f 100%);color:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 header{padding:14px 18px;background:rgba(15,17,24,0.85);backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.07)}
 .brand{font-weight:800;font-size:16px;background:linear-gradient(135deg,#93c5fd,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .btn-pill{background:rgba(255,255,255,0.07);color:#e5e7eb;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:0.2s}
@@ -10,7 +10,7 @@ header{padding:14px 18px;background:rgba(15,17,24,0.85);backdrop-filter:blur(12p
 .msg{max-width:88%;padding:14px 17px;border-radius:22px;line-height:1.65;font-size:15px;word-wrap:break-word;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
 .USER{align-self:flex-start;background:linear-gradient(135deg,#232734,#1a1d26);border:1px solid rgba(255,255,255,0.08);border-bottom-right-radius:6px}
 .AI{align-self:flex-end;background:rgba(20,23,31,0.92);border:1px solid rgba(147,197,253,0.16);border-bottom-left-radius:6px;width:92%}
-.dock{position:relative;padding:10px 14px 16px;background:linear-gradient(to top,#090a0f 80%,transparent)}
+.dock{position:relative;padding:8px 12px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#090a0f 80%,transparent)}
 .plus-menu{display:none;position:absolute;bottom:80px;right:16px;background:rgba(24,27,36,0.96);backdrop-filter:blur(16px);border:1px solid rgba(147,197,253,0.25);border-radius:20px;padding:8px;width:250px;box-shadow:0 16px 40px rgba(0,0,0,0.7);z-index:999;flex-direction:column;gap:4px}
 .plus-menu.show{display:flex}
 .pm-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:transparent;border:none;color:#f3f4f6;font-size:14px;font-weight:500;cursor:pointer;text-align:right;width:100%}
