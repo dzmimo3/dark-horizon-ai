@@ -37,91 +37,71 @@
       }
     }catch(e){}
   }
-  function drawDynamicFrame(ctx, w, h, t, lp, idx, sc, talking, bgImg, pts){
-    ctx.save();
-    // كاميرا سينمائية: تقريب، اهتزاز قتالي، وميلان ديناميكي
-    var zoom = 1.05 + Math.sin(lp * Math.PI) * 0.14;
-    var shakeX = (lp < 0.14) ? Math.sin(t * 55) * 6 : 0;
-    var shakeY = (lp < 0.14) ? Math.cos(t * 48) * 5 : 0;
-    ctx.translate(w * 0.5 + shakeX, h * 0.5 + shakeY);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-w * 0.5, -h * 0.5);
-
-    // 1. رسم خلفية المشهد المولدة بالذكاء الاصطناعي أو الخلفية السينمائية الفورية (لا شاشة سوداء أبداً)
-    if(bgImg){
-      ctx.drawImage(bgImg, 0, 0, w, h);
-      ctx.fillStyle = "rgba(6, 10, 20, 0.25)";
-      ctx.fillRect(0, 0, w, h);
-    } else {
-      var sky = ctx.createLinearGradient(0, 0, 0, h);
-      if(idx % 2 === 0){ sky.addColorStop(0, "#071124"); sky.addColorStop(1, "#1e3a5f"); }
-      else { sky.addColorStop(0, "#1c0a24"); sky.addColorStop(1, "#4c1d3d"); }
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = "rgba(254, 240, 138, 0.9)";
-      ctx.beginPath(); ctx.arc(w * 0.5, h * 0.25, w * 0.09, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#090f1d";
-      ctx.beginPath(); ctx.moveTo(0, h);
-      for(var x = 0; x <= w; x += 30) ctx.lineTo(x, h * 0.65 - Math.sin(x * 0.015 + t) * 35);
-      ctx.lineTo(w, h); ctx.fill();
-    }
-
-    // 2. رسم وتحريك الشخصيات المتفاعلة (مشي / جري / قتال) فوق المشهد
-    function renderActor(cx, cy, dir, colMain, colHair, isSpeaker){
-      ctx.save();
-      var spd = sc.motion === "run" ? 11.0 : (sc.motion === "walk" ? 5.5 : 8.5);
-      var moveX = (sc.motion === "run" || sc.motion === "walk") ? Math.sin(t * 2.2) * 45 * dir : Math.sin(t * 6.0) * 18 * dir;
-      var bounce = Math.abs(Math.sin(t * spd)) * (sc.motion === "run" ? 16 : 6);
-      ctx.translate(cx + moveX, cy - bounce);
-      ctx.scale(dir, 1);
-
-      if(isSpeaker){
-        var aura = ctx.createRadialGradient(0, -45, 5, 0, -45, 95);
-        aura.addColorStop(0, colMain + "66"); aura.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, -45, 95, 0, Math.PI * 2); ctx.fill();
-      }
-
-      // عباءة متطايرة + أرجل متحركة + جذع + رأس + سيف متوهج
-      ctx.fillStyle = colMain;
-      ctx.beginPath(); ctx.moveTo(-12, -72); ctx.quadraticCurveTo(-68, -45 + Math.sin(t * 9) * 16, -88, 16); ctx.lineTo(-14, -8); ctx.fill();
-
-      var legA = Math.sin(t * spd) * 24;
-      ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 13; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(-8, -14); ctx.lineTo(-18 - legA, 42); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(10, -14); ctx.lineTo(22 + legA, 42); ctx.stroke();
-
-      ctx.fillStyle = "#f8fafc"; ctx.beginPath(); ctx.roundRect(-19, -78, 38, 66, 11); ctx.fill();
-      ctx.fillStyle = colMain; ctx.fillRect(-19, -48, 38, 12);
-
-      ctx.save();
-      ctx.translate(0, -102 + (isSpeaker && talking ? Math.sin(t * 24) * 2.5 : 0));
-      ctx.fillStyle = "#ffedd5"; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = colHair; ctx.beginPath(); ctx.moveTo(-24, -4); ctx.lineTo(-16, -34); ctx.lineTo(0, -22); ctx.lineTo(14, -36); ctx.lineTo(25, -4); ctx.fill();
-      ctx.fillStyle = colMain; ctx.fillRect(6, -4, 8, (Math.sin(t * 2.3) > 0.96) ? 1.5 : 6);
-      ctx.fillStyle = "#be123c"; ctx.fillRect(7, 9, 8, (isSpeaker && talking) ? (3 + Math.abs(Math.sin(t * 28)) * 6) : 2);
-      ctx.restore();
-
-      ctx.save();
-      ctx.translate(12, -64);
-      ctx.rotate(sc.motion === "fight" ? (Math.sin(t * 8.0) * 1.1 - 0.35) : (Math.sin(t * spd) * 0.4));
-      ctx.strokeStyle = "#ffedd5"; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(36, 0); ctx.stroke();
-      ctx.strokeStyle = colMain; ctx.lineWidth = 5; ctx.shadowColor = colMain; ctx.shadowBlur = 14;
-      ctx.beginPath(); ctx.moveTo(36, 0); ctx.lineTo(130, -12); ctx.stroke();
-      ctx.restore();
-      ctx.restore();
-    }
-
-    renderActor(w * 0.28, h * 0.66, 1, "#38bdf8", "#0f172a", idx % 2 === 0);
-    renderActor(w * 0.72, h * 0.66, -1, "#f43f5e", "#f8fafc", idx % 2 === 1);
-    ctx.restore();
-
-    // 3. جزيئات الطاقة وخطوط السرعة
-    pts.forEach(function(pt){
-      pt.x += pt.vx; pt.y += pt.vy;
-      if(pt.y < 0) pt.y = h; if(pt.x < 0) pt.x = w; if(pt.x > w) pt.x = 0;
-      ctx.fillStyle = "rgba(253, 224, 71, " + pt.a + ")";
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2); ctx.fill();
+  function loadGameEngine(){
+    return new Promise(function(res){
+      if(window.THREE && window.THREE.GLTFLoader) return res(window.THREE);
+      var s1 = document.createElement("script");
+      s1.src = "https://jsdelivr.net";
+      s1.onload = function(){
+        var s2 = document.createElement("script");
+        s2.src = "https://jsdelivr.net";
+        s2.onload = function(){ res(window.THREE); };
+        s2.onerror = function(){ res(null); };
+        document.head.appendChild(s2);
+      };
+      s1.onerror = function(){ res(null); };
+      document.head.appendChild(s1);
     });
   }
+
+  function init3DGameWorld(THREE, w, h){
+    return new Promise(function(resolve){
+      var scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b132b);
+      scene.fog = new THREE.FogExp2(0x0b132b, 0.032);
+      var cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+      cam.position.set(0, 2.5, 7.5);
+      var ren = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+      ren.setSize(w, h);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      var sun = new THREE.DirectionalLight(0xfef08a, 1.4); sun.position.set(5, 10, 6); scene.add(sun);
+      var rim = new THREE.PointLight(0x38bdf8, 1.8, 25); rim.position.set(-4, 4, 3); scene.add(rim);
+
+      var ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({color: 0x1c2541, roughness: 0.8}));
+      ground.rotation.x = -Math.PI / 2; scene.add(ground);
+      scene.add(new THREE.GridHelper(60, 40, 0x3a506b, 0x1c2541));
+
+      var glb = "https://jsdelivr.net";
+      var loader = new THREE.GLTFLoader();
+      var chars = [null, null], loaded = 0;
+
+      [0, 1].forEach(function(idx){
+        loader.load(glb, function(gltf){
+          var model = gltf.scene;
+          model.scale.set(0.62, 0.62, 0.62);
+          model.position.set(idx === 0 ? -1.8 : 1.8, 0, 0);
+          model.rotation.y = idx === 0 ? Math.PI / 2 : -Math.PI / 2;
+          model.traverse(function(n){
+            if(n.isMesh && n.material){
+              n.material = n.material.clone();
+              if(n.material.color) n.material.color.offsetHSL(idx === 0 ? 0.55 : 0.0, 0.2, 0);
+            }
+          });
+          scene.add(model);
+          var mixer = new THREE.AnimationMixer(model);
+          var clips = {};
+          gltf.animations.forEach(function(c){ clips[c.name] = mixer.clipAction(c); });
+          if(clips["Idle"]) clips["Idle"].play();
+          chars[idx] = {model: model, mixer: mixer, clips: clips, cur: "Idle"};
+          if(++loaded === 2) resolve({scene: scene, cam: cam, ren: ren, chars: chars});
+        }, undefined, function(){
+          if(++loaded === 2) resolve(null);
+        });
+      });
+    });
+  }
+
   function renderSmartReply(text){
     var d = window.DH_UI.addMsg("AI", text);
     var codeMatch = text.match(/```(?:html|xml)?\s*([\s\(\S\)]*?)```/i);
@@ -201,26 +181,21 @@
             ];
           }
 
-          wait.innerHTML = "🎨 <b>2/4:</b> توليد خلفيات الاستوديو وتسجيل أصوات الشخصيات...";
+          wait.innerHTML = "🎮 <b>2/4:</b> تحميل مجسمات الشخصيات ثلاثية الأبعاد وهيكلها العظمي...";
           var dm = getDims();
-          var bgImgs = await Promise.all(scenes.map(function(sc){
-            if(cType === "img") return new Promise(function(r){ var im = new Image(); im.onload = function(){ r(im); }; im.onerror = function(){ r(null); }; im.src = cData; });
-            return fetch(EDGE + sl + "image", {
-              method: "POST", headers: {"Content-Type": "application/json"},
-              body: JSON.stringify({prompt: sc.bgPrompt + ", anime scenery background, no text, 8k", width: dm.w, height: dm.h})
-            }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-              if(!d || !d.image_url) return null;
-              return new Promise(function(res){ var im = new Image(); im.onload = function(){ res(im); }; im.onerror = function(){ res(null); }; im.src = d.image_url; });
-            }).catch(function(){ return null; });
-          }));
+          var THREE = await loadGameEngine();
+          var world = THREE ? await init3DGameWorld(THREE, dm.w, dm.h) : null;
+          if(!world) throw new Error("تعذر تحميل محرك 3D، تحقق من اتصال الإنترنت");
 
+          wait.innerHTML = "🎙️ <b>3/4:</b> تسجيل أصوات الشخصيات بالنبرات البشرية النظيفة...";
           var audioClips = await Promise.all(scenes.map(function(sc){
             return fetch(EDGE + sl + "tts?t=" + encodeURIComponent(cleanSpeech(sc.line)) + "&v=" + sc.tone)
               .then(function(r){ return r.ok ? r.arrayBuffer() : null; })
               .then(function(buf){ return (buf && buf.byteLength > 200) ? actx.decodeAudioData(buf) : null; })
               .catch(function(){ return null; });
           }));
-          wait.innerHTML = "🎬 <b>3/4:</b> إخراج المشهد وتحريك الشخصيات ودمج الأصوات...";
+
+          wait.innerHTML = "🎬 <b>4/4:</b> تحريك الشخصيات ثلاثية الأبعاد وتسجيل المشهد...";
           var hud = document.createElement("canvas"); hud.width = dm.w; hud.height = dm.h;
           var hctx = hud.getContext("2d");
           var vStream = hud.captureStream(30); dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
@@ -230,7 +205,6 @@
           var doneRec = new Promise(function(res){ rec.onstop = function(){ try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
           rec.start();
 
-          var pts = Array.from({length: 45}, function(){ return {x: Math.random()*dm.w, y: Math.random()*dm.h, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.5, vy: -0.8-Math.random()*1.5, a: 0.45+Math.random()*0.5}; });
           var totalFrames = Math.max(targetSec, scenes.length * 4) * 30, perScene = Math.floor(totalFrames / scenes.length), fc = 0, lastSpokenIdx = -1;
           var sfxKind = (low.indexOf("بحر") !== -1) ? "sea" : ((low.indexOf("رعد") !== -1 || low.indexOf("وحش") !== -1) ? "roar" : "sword");
 
@@ -251,16 +225,40 @@
                   }catch(ex){}
                 }
               }
-              drawDynamicFrame(hctx, dm.w, dm.h, tSec, lp, idx, curSc, window._isTalking, bgImgs[idx], pts);
+
+              var targetAnim = curSc.motion === "run" ? "Running" : (curSc.motion === "walk" ? "Walking" : "Punch");
+              world.chars.forEach(function(ch, ci){
+                if(!ch) return;
+                ch.mixer.update(0.033);
+                var animName = (idx % 2 === ci) ? targetAnim : (curSc.motion === "fight" ? "Punch" : "Walking");
+                if(!ch.clips[animName]) animName = "Idle";
+                if(ch.cur !== animName && ch.clips[animName]){
+                  if(ch.clips[ch.cur]) ch.clips[ch.cur].fadeOut(0.2);
+                  ch.clips[animName].reset().fadeIn(0.2).play();
+                  ch.cur = animName;
+                }
+                if(curSc.motion === "run" || curSc.motion === "walk"){
+                  ch.model.position.x = (ci === 0 ? -1.8 : 1.8) + Math.sin(tSec * 2.2) * (ci === 0 ? 1.0 : -1.0);
+                } else {
+                  ch.model.position.x = (ci === 0 ? -0.95 : 0.95);
+                }
+              });
+
+              world.cam.position.x = Math.sin(tSec * 0.65) * 2.2;
+              world.cam.position.z = 6.8 - Math.sin(lp * Math.PI) * 1.3;
+              world.cam.lookAt(0, 1.5, 0);
+              world.ren.render(world.scene, world.cam);
+              hctx.drawImage(world.ren.domElement, 0, 0);
+
               var grad = hctx.createLinearGradient(0, dm.h*0.72, 0, dm.h); grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.94)");
               hctx.fillStyle = grad; hctx.fillRect(0, dm.h*0.72, dm.w, dm.h*0.28);
               hctx.fillStyle = curSc.tone === "soft" ? "#f472b6" : (curSc.tone === "deep" ? "#fbbf24" : "#38bdf8");
               hctx.fillRect(dm.w/2 - 110, dm.h*0.78, 220, 34); hctx.font = "bold 19px sans-serif"; hctx.textAlign = "center"; hctx.fillStyle = "#090a0f"; hctx.fillText(curSc.speaker, dm.w/2, dm.h*0.78 + 24);
               hctx.font = "bold 28px sans-serif"; hctx.fillStyle = "#ffffff"; hctx.fillText(curSc.line, dm.w/2, dm.h*0.91);
+
               if(++fc >= totalFrames){ clearInterval(tm); rec.stop(); res(); }
             }, 33);
           });
-
           var fbVid = await doneRec, castSummary = scenes.map(function(x){ return "• <b>" + x.speaker + ":</b> " + x.line; }).join("<br>");
           wait.remove(); window.DH_UI.addMsg("AI", "🎬 <b>تم الإخراج الشامل (خلفيات AI + شخصيات متحركة + أصوات متعددة):</b><br><br>" + castSummary, {vid: fbVid});
         } else if((low.indexOf("صورة") !== -1 || low.indexOf("صور") !== -1 || low.indexOf("شخصية") !== -1 || low.indexOf("ارسم") !== -1 || low.indexOf("صمم") !== -1 || low.indexOf("image") !== -1) && cType !== "img"){
