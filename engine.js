@@ -5,15 +5,23 @@
   var EDGE = "https:" + sl + sl + "hidden-bread-95eb.dz30007000.workers.dev";
   var q = document.getElementById("q");
 
-  function saveH(){ try{ localStorage.setItem("dh_hist", JSON.stringify(hist.slice(-20))); }catch(e){} }
-  hist.forEach(function(m){ window.DH_UI.addMsg(m.role === "user" ? "USER" : "AI", m.content); });
+  function saveH(){
+    try{ localStorage.setItem("dh_hist", JSON.stringify(hist.slice(-20))); }catch(e){}
+  }
+  hist.forEach(function(m){
+    window.DH_UI.addMsg(m.role === "user" ? "USER" : "AI", m.content);
+  });
 
   async function askAI(msgs, imgData){
     var r = await fetch(EDGE + sl + "chat", {
-      method: "POST", headers: {"Content-Type": "application/json"},
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({messages: msgs.slice(-8), image: imgData || null})
     });
-    if(r.ok){ var d = await r.json(); if(d && d.reply) return d.reply; }
+    if(r.ok){
+      var d = await r.json();
+      if(d && d.reply) return d.reply;
+    }
     throw new Error("تعذر الاتصال بالمحرك السحابي");
   }
   window.DH_ENGINE = {
@@ -33,17 +41,18 @@
           if(actx.state === "suspended") await actx.resume();
           var dest = actx.createMediaStreamDestination();
           var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
-          var targetSec = matchSec ? Math.max(parseInt(matchSec[1], 10), 8) : 14;
+          var targetSec = matchSec ? Math.max(parseInt(matchSec.shift(), 10), 8) : 14;
           var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|اصنع حلقة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, "").trim() || "مواجهة بين البطل سيف والشرير كايتو فوق قمة الجبل";
+
           wait.innerHTML = "📝 <b>1/4:</b> تأليف الحوار وتوزيع الشخصيات والأصوات...";
-          var sp = 'أنت مخرج أنمي. اكتب 4 سطور حوارية بالعربية الفصحى عن: "' + cleanV + '". التزم حرفياً بهذا القالب في كل سطر بدون ترقيم أو نجوم:\nاسم_الشخصية | الصوت(onyx أو nova أو echo) | الحوار_بالعربية(6 كلمات كحد أقصى) | وصف_اللقطة_بالإنجليزية(12 كلمة تصف الشخصية وملابسها وحركتها)';
+          var sp = 'أنت مخرج أنمي. اكتب 4 سطور حوارية بالعربية الفصحى عن: "' + cleanV + '". التزم حرفياً بهذا القالب في كل سطر بدون ترقيم:\nاسم_الشخصية | الصوت(onyx أو nova أو echo) | الحوار_بالعربية(6 كلمات كحد أقصى) | وصف_اللقطة_بالإنجليزية(12 كلمة)';
           var rawScript = await askAI([{role: "user", content: sp}]);
           var scenes = rawScript.split("\n").map(function(line){
             var p = line.split("|").map(function(x){ return x.replace(/[*#]/g, "").trim(); });
-            if(p.length >= 4 && p[0] && p[2] && p[3]){
-              var v = p[1].toLowerCase();
-              if(v !== "onyx" && v !== "nova" && v !== "echo") v = "onyx";
-              return {speaker: p[0], voice: v, line: p[2], prompt: p[3]};
+            if(p.length >= 4){
+              var s0 = p.shift(), s1 = p.shift().toLowerCase(), s2 = p.shift(), s3 = p.shift();
+              if(s1 !== "onyx" && s1 !== "nova" && s1 !== "echo") s1 = "onyx";
+              if(s0 && s2 && s3) return {speaker: s0, voice: s1, line: s2, prompt: s3};
             }
             return null;
           }).filter(Boolean).slice(0, 4);
@@ -55,18 +64,24 @@
               {speaker: "سيف", voice: "echo", line: "هذه الضربة الحاسمة باسم العدالة!", prompt: "young black-haired anime hero in white coat unleashing massive blue slash attack"}
             ];
           }
-          if(cType === "img") scenes = [scenes[0]];
+          if(cType === "img") scenes = scenes.slice(0, 1);
+
           wait.innerHTML = "🎨 <b>2/4:</b> رسم المشاهد وتثبيت ملامح الشخصيات...";
           var fUrls = cType === "img" ? [cData] : await Promise.all(scenes.map(function(sc){
-            var fullPr = sc.prompt + (isAnime ? ", high budget Japanese anime key visual, Studio MAPPA and Ufotable style, consistent character design, dynamic cel shading, 8k" : ", cinematic 8k ultra realistic scene, dramatic lighting");
+            var fullPr = sc.prompt + (isAnime ? ", high budget Japanese anime key visual, Studio MAPPA style, cel shading, 8k" : ", cinematic 8k ultra realistic scene");
             return fetch(EDGE + sl + "image", {
-              method: "POST", headers: {"Content-Type": "application/json"},
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
               body: JSON.stringify({prompt: fullPr, width: 768, height: 768})
-            }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ return (d && d.image_url) ? d.image_url : null; }).catch(function(){ return null; });
+            }).then(function(r){ return r.ok ? r.json() : null; })
+              .then(function(d){ return (d && d.image_url) ? d.image_url : null; })
+              .catch(function(){ return null; });
           }));
+
           var validPairs = [];
           for(var k = 0; k < fUrls.length; k++) if(fUrls[k]) validPairs.push({url: fUrls[k], scene: scenes[k]});
           if(!validPairs.length) throw new Error("تعذر توليد المشاهد حالياً");
+
           var imObjs = (await Promise.all(validPairs.map(function(vp){
             return new Promise(function(res){
               var im = new Image(); im.crossOrigin = "anonymous";
@@ -75,6 +90,7 @@
               im.src = vp.url;
             });
           }))).filter(Boolean);
+
           wait.innerHTML = "🎙️ <b>3/4:</b> تسجيل أصوات الشخصيات باللغة العربية...";
           var audioClips = await Promise.all(imObjs.map(function(item){
             return fetch(EDGE + sl + "tts?t=" + encodeURIComponent(item.scene.line) + "&v=" + item.scene.voice)
@@ -86,17 +102,19 @@
           var cv = document.createElement("canvas"); cv.width = 768; cv.height = 768;
           var gl = cv.getContext("webgl", {preserveDrawingBuffer: true});
           var vsSrc = "attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }";
-          var fsSrc = "precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; uniform float u_talk; varying vec2 v_uv; void main(){ vec2 uv = v_uv; float z = (u_mode == 0) ? (1.04 + u_prog * 0.14) : (1.18 - u_prog * 0.14); uv = (uv - 0.5) / z + 0.5; float upperBody = smoothstep(0.85, 0.15, v_uv.y); float headZone = smoothstep(0.55, 0.15, v_uv.y); uv.y += sin(u_time * 3.2) * 0.008 * upperBody + sin(u_time * 18.0) * 0.007 * headZone * u_talk; uv.x += sin(u_time * 2.4 + float(u_mode)) * 0.012 * upperBody + sin(v_uv.y * 12.0 - u_time * 6.0) * 0.005 * smoothstep(0.3, 0.9, abs(v_uv.x - 0.5)); float impact = smoothstep(0.86, 1.0, sin(u_prog * 3.14159)); uv.x += sin(u_time * 38.0) * 0.004 * impact; vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997)); float angle = atan(v_uv.y - 0.5, v_uv.x - 0.5); float speedLines = smoothstep(0.75, 1.0, sin(angle * 48.0 + u_time * 15.0)) * smoothstep(0.32, 0.72, length(v_uv - 0.5)); col.rgb += vec3(0.85, 0.92, 1.0) * speedLines * 0.16 * impact; float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5)); col.rgb *= mix(0.65, 1.12, vig); gl_FragColor = col; }";
+          var fsSrc = "precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; uniform float u_talk; varying vec2 v_uv; void main(){ vec2 uv = v_uv; float z = (u_mode == 0) ? (1.04 + u_prog * 0.14) : (1.18 - u_prog * 0.14); uv = (uv - 0.5) / z + 0.5; float upperBody = smoothstep(0.85, 0.15, v_uv.y); float headZone = smoothstep(0.55, 0.15, v_uv.y); uv.y += sin(u_time * 3.2) * 0.008 * upperBody + sin(u_time * 18.0) * 0.007 * headZone * u_talk; uv.x += sin(u_time * 2.4 + float(u_mode)) * 0.012 * upperBody; vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997)); float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5)); col.rgb *= mix(0.65, 1.12, vig); gl_FragColor = col; }";
           function mkSh(tp, sr){ var sh = gl.createShader(tp); gl.shaderSource(sh, sr); gl.compileShader(sh); return sh; }
           var prog = gl.createProgram(); gl.attachShader(prog, mkSh(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(prog, mkSh(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(prog); gl.useProgram(prog);
           var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
           var posLoc = gl.getAttribLocation(prog, "a_pos"); gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
           var texList = imObjs.map(function(item){
             var tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, item.img); return tx;
           });
+
           var hud = document.createElement("canvas"); hud.width = 768; hud.height = 768; var hctx = hud.getContext("2d");
           var vStream = hud.captureStream(30); dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
           var mimeOut = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
@@ -104,13 +122,18 @@
           rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
           var doneRec = new Promise(function(res){ rec.onstop = function(){ try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
           rec.start();
+
           var uTime = gl.getUniformLocation(prog, "u_time"), uProg = gl.getUniformLocation(prog, "u_prog"), uMode = gl.getUniformLocation(prog, "u_mode"), uTalk = gl.getUniformLocation(prog, "u_talk");
-          var pts = Array.from({length: 40}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.4, vy: -0.7-Math.random()*1.4, a: 0.4+Math.random()*0.55}; });
+          var pts = Array.from({length: 35}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.4, vy: -0.7-Math.random()*1.4, a: 0.4+Math.random()*0.55}; });
           var totalFrames = Math.max(targetSec, imObjs.length * 4) * 30, perScene = Math.floor(totalFrames / imObjs.length), fc = 0, lastSpokenIdx = -1;
+
           await new Promise(function(res){
             var tm = setInterval(function(){
               var idx = Math.min(Math.floor(fc / perScene), imObjs.length - 1), lp = (fc % perScene) / perScene;
-              if(idx !== lastSpokenIdx){ lastSpokenIdx = idx; window._isTalking = 0.0; if(audioClips[idx]){ try{ var src = actx.createBufferSource(); src.buffer = audioClips[idx]; src.connect(dest); src.connect(actx.destination); window._isTalking = 1.0; src.onended = function(){ window._isTalking = 0.0; }; src.start(0); }catch(ex){} } }
+              if(idx !== lastSpokenIdx){
+                lastSpokenIdx = idx; window._isTalking = 0.0;
+                if(audioClips[idx]){ try{ var src = actx.createBufferSource(); src.buffer = audioClips[idx]; src.connect(dest); src.connect(actx.destination); window._isTalking = 1.0; src.onended = function(){ window._isTalking = 0.0; }; src.start(0); }catch(ex){} }
+              }
               gl.viewport(0, 0, 768, 768); gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
               gl.uniform1f(uTime, fc * 0.033); gl.uniform1f(uProg, lp); gl.uniform1i(uMode, idx % 2); gl.uniform1f(uTalk, window._isTalking || 0.0);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); hctx.clearRect(0, 0, 768, 768); hctx.drawImage(cv, 0, 0);
@@ -123,13 +146,14 @@
               if(++fc >= totalFrames){ clearInterval(tm); rec.stop(); res(); }
             }, 33);
           });
+
           var fbVid = await doneRec, castSummary = imObjs.map(function(x){ return "• <b>" + x.scene.speaker + ":</b> " + x.scene.line; }).join("<br>");
           wait.remove(); window.DH_UI.addMsg("AI", "🎬 <b>تم إخراج الحلقة (أصوات متعددة + أسماء الشخصيات + ترجمة):</b><br><br>" + castSummary, {vid: fbVid});
         } else if((low.indexOf("صورة") !== -1 || low.indexOf("صور") !== -1 || low.indexOf("ارسم") !== -1 || low.indexOf("صمم") !== -1 || low.indexOf("image") !== -1) && cType !== "img"){
           var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, "").trim();
           var en = cleanT.length > 2 ? await askAI([{role: "user", content: "Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English): " + cleanT}]) : "majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography";
           en = en.replace(/[^a-zA-Z0-9 ,.-]/g, "").trim().slice(0, 140) || "cinematic ultra realistic 8k landscape photography";
-          if(isAnime) en += ", masterpiece Japanese anime key visual, Studio Ghibli and Ufotable style, vibrant cel shading, 8k";
+          if(isAnime) en += ", masterpiece Japanese anime key visual, Studio Ghibli style, vibrant cel shading, 8k";
           var ir = await fetch(EDGE + sl + "image", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({prompt: en, width: 768, height: 768})});
           var iData = await ir.json().catch(function(){ return {}; });
           if(!ir.ok || !iData.image_url) throw new Error("فشل توليد الصورة");
