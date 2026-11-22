@@ -1,3 +1,10 @@
+
+window.DH_VOICE_PROFILES = [
+  { pitch: 1.22, rate: 1.02 },
+  { pitch: 0.78, rate: 0.94 },
+  { pitch: 1.08, rate: 1.05 },
+  { pitch: 0.85, rate: 0.98 }
+];
 (function(){
   var hist = [];
   try{ hist = JSON.parse(localStorage.getItem("dh_hist") || "[]"); }catch(e){ hist = []; }
