@@ -158,6 +158,11 @@ window.addEventListener('beforeinstallprompt', function(e){
         var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|حول صورة إلى فيديو|حرك هذه الصورة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim();
         var enRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'Translate into a short realistic modest English cinematic action scene (10 words max, ONLY English): ' + cleanV}]) : 'scenic desert sunset with Arabian horses running, realistic cinematic';
         var enBase = enRaw.split('\n').pop().replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 130) || 'cinematic realistic motion scene';
+        var isAnime = (document.getElementById('animeModeChk') && document.getElementById('animeModeChk').checked) || low.indexOf('انمي') !== -1 || low.indexOf('أنمي') !== -1 || low.indexOf('كرتون') !== -1 || low.indexOf('anime') !== -1;
+        if(isAnime){
+          enBase = (lockedHero ? lockedHero + ', ' : '') + enBase + ', high budget Japanese anime key visual, Studio MAPPA and Makoto Shinkai style, dramatic cel shading, dynamic action, 4k';
+          fltVal = 4;
+        }
 
         wait.innerHTML = '🎬 جاري الفحص السحابي وتجهيز محرك الموشن جرافيك...';
         var vr = await fetch(EDGE_URL + sl + 'video', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: enBase, aspect: asp, image_url: (cType === 'img' ? cData : null)}) }).catch(function(){ return {ok:false}; });
@@ -196,7 +201,11 @@ window.addEventListener('beforeinstallprompt', function(e){
             '  vec2 uv = v_uv;' +
             '  float z = (u_mode == 0) ? (1.0 + u_prog * 0.14) : (1.14 - u_prog * 0.14);' +
             '  uv = (uv - 0.5) / z + 0.5;' +
-            '  uv.x += sin(uv.y * 5.0 + u_time * 2.2) * 0.0045;' +
+            '  if(u_flt == 4){
+    uv.x += sin(u_time * 28.0) * 0.003 * smoothstep(0.6, 1.0, sin(u_time * 3.0));
+    uv.y += cos(u_time * 24.0) * 0.003 * smoothstep(0.6, 1.0, sin(u_time * 3.0));
+  }
+  uv.x += sin(uv.y * 5.0 + u_time * 2.2) * 0.0045;' +
             '  uv.y += cos(uv.x * 5.0 + u_time * 1.8) * 0.0045;' +
             '  vec4 col = texture2D(u_tex, clamp(uv, 0.002, 0.998));' +
             '  float glow = smoothstep(0.85, 0.0, length(v_uv - vec2(0.5 + sin(u_time)*0.25, 0.35)));' +
@@ -306,6 +315,10 @@ window.addEventListener('beforeinstallprompt', function(e){
         var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, '').trim();
         var en = cleanT.length > 2 ? await askAI([{role:'user', content:'Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English, always modest): ' + cleanT}]) : 'majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography';
         en = en.replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 140) || 'cinematic ultra realistic 8k landscape photography';
+        var isAnimeImg = (document.getElementById('animeModeChk') && document.getElementById('animeModeChk').checked) || low.indexOf('انمي') !== -1 || low.indexOf('أنمي') !== -1 || low.indexOf('كرتون') !== -1 || low.indexOf('anime') !== -1;
+        if(isAnimeImg){
+          en = (lockedHero ? lockedHero + ', ' : '') + en + ', masterpiece Japanese anime key visual, Studio Ghibli and Ufotable style, vibrant cel shading, 8k';
+        }
         var wImgUrl = 'https:' + sl + sl + 'hidden-bread-95eb.dz30007000.workers.dev' + sl + 'image';
         var ir = await fetch(wImgUrl, {
           method: 'POST',
@@ -345,6 +358,21 @@ window.addEventListener('beforeinstallprompt', function(e){
           opt.value = parseInt(cSec, 10); opt.textContent = '⏱️ ' + opt.value + 'ث'; opt.selected = true;
           durEl.insertBefore(opt, durEl.lastElementChild);
         } else { durEl.value = '10'; }
+      }
+    });
+  }
+
+  
+  var lockedHero = localStorage.getItem('dh_anime_hero') || '';
+  var btnHero = document.getElementById('btnCharLock');
+  if(btnHero){
+    if(lockedHero) btnHero.textContent = '👤 البطل: مفعّل';
+    btnHero.addEventListener('click', function(){
+      var h = prompt('اكتب وصف بطل الأنمي لتثبيته في كل المشاهد (اتركه فارغاً للإلغاء):', lockedHero || 'young warrior with spiky black hair, blue eyes, wearing white and blue long coat');
+      if(h !== null){
+        lockedHero = h.trim();
+        localStorage.setItem('dh_anime_hero', lockedHero);
+        btnHero.textContent = lockedHero ? '👤 البطل: مفعّل' : '👤 بطل الأنمي';
       }
     });
   }
