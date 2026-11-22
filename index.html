@@ -127,130 +127,155 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
     var isAnime = low.indexOf('انمي') !== -1 || low.indexOf('أنمي') !== -1 || low.indexOf('كرتون') !== -1 || low.indexOf('anime') !== -1;
 
     try{
-      if(low.indexOf('فيديو') !== -1 || low.indexOf('مقطع') !== -1 || low.indexOf('تحريك') !== -1 || low.indexOf('video') !== -1){
+      if(low.indexOf('فيديو') !== -1 || low.indexOf('مقطع') !== -1 || low.indexOf('تحريك') !== -1 || low.indexOf('انمي') !== -1 || low.indexOf('أنمي') !== -1 || low.indexOf('video') !== -1){
         var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
-        var targetSec = matchSec ? Math.max(parseInt(matchSec.shift(), 10), 4) : 10;
-        var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim();
-        var enRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'Translate into a short realistic modest English cinematic action scene (10 words max, ONLY English): ' + cleanV}]) : 'scenic desert sunset with Arabian horses running, realistic cinematic';
-        var enBase = enRaw.split('\n').pop().replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 130) || 'cinematic realistic motion scene';
-        if(isAnime) enBase += ', high budget Japanese anime key visual, Studio MAPPA and Makoto Shinkai style, dramatic cel shading, 4k';
+        var targetSec = matchSec ? Math.max(parseInt(matchSec.shift(), 10), 6) : 12;
+        var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim() || 'معركة أبطال الأنمي فوق أسطح المنازل ليلاً';
 
-        var sceneCount = cType === 'img' ? 1 : Math.min(Math.max(Math.ceil(targetSec / 3), 3), 10);
-        wait.innerHTML = '🎬 جاري إخراج المشاهد والسيناريو (' + targetSec + ' ثوانٍ)...';
-        var capRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'اكتب ' + sceneCount + ' جمل عربية قصيرة ومؤثرة (كل جملة 5 كلمات كحد أقصى في سطر مستقل بدون أرقام) تناسب فيديو عن: ' + cleanV}]) : 'لحظات سينمائية لا تُنسى\nإبداع يتجاوز حدود الخيال\nرؤية فنية متكاملة';
-        var captions = capRaw.split('\n').map(function(l){ return l.replace(/[*#-0-9.]/g,'').trim(); }).filter(Boolean);
-        if(!captions.length) captions = ['DARK HORIZON'];
+        wait.innerHTML = '📝 <b>المرحلة 1/4:</b> الاستوديو يؤلف السيناريو ويوزع الشخصيات والأصوات...';
+        var scriptPrompt = 'أنت مخرج استوديو أنمي عالمي. اكتب سيناريو قصير مكون من 4 مشاهد حوارية مشوقة باللغة العربية الفصحى عن: "' + cleanV + '". ' +
+          'التزم حرفياً بهذا التنسيق لكل سطر (بدون أي مقدمات أو نجوم):\n' +
+          'اسم_الشخصية | نوع_الصوت(onyx أو nova أو echo) | الحوار_بالعربية(7 كلمات كحد أقصى) | وصف_المشهد_بالإنجليزية(10 كلمات فقط)';
 
-        var shotStyles = [', wide establishing shot', ', dynamic medium tracking shot', ', dramatic low angle shot', ', detailed close-up shot, 8k', ', aerial panoramic view'];
-        var fUrls = cType === 'img' ? [cData] : await Promise.all(Array.from({length: sceneCount}, function(_, idx){
-          var pr = enBase + shotStyles[idx % shotStyles.length];
+        var rawScript = await askAI([{role:'user', content: scriptPrompt}]);
+        var scenes = rawScript.split('\n').map(function(line){
+          var p = line.split('|').map(function(x){ return x.replace(/[*#]/g,'').trim(); });
+          if(p.length >= 4 && p && p){
+            var v = p.toLowerCase();
+            if(v !== 'onyx' && v !== 'nova' && v !== 'echo') v = 'onyx';
+            return { speaker: p, voice: v, line: p, prompt: p };
+          }
+          return null;
+        }).filter(Boolean).slice(0, 5);
+
+        if(scenes.length === 0){
+          scenes = [
+            { speaker: 'الراوي', voice: 'onyx', line: 'بدأت المواجهة الحاسمة تحت ضوء القمر', prompt: 'epic anime warrior standing on rooftop at night, moonlit' },
+            { speaker: 'آكيرا', voice: 'echo', line: 'لن أتراجع مهما كانت قوة الخصم!', prompt: 'intense anime hero drawing glowing katana sword, dynamic angle' },
+            { speaker: 'ساكورا', voice: 'nova', line: 'احذر! الطاقة تتصاعد من كل مكان!', prompt: 'anime heroine casting blue energy shield, dramatic lighting' }
+          ];
+        }
+        if(cType === 'img') scenes = [scenes];
+
+        wait.innerHTML = '🎨 <b>المرحلة 2/4:</b> رسم ' + scenes.length + ' مشاهد بأسلوب الاستوديوهات اليابانية والصينية...';
+        var fUrls = cType === 'img' ? [cData] : await Promise.all(scenes.map(function(sc, idx){
+          var fullPr = sc.prompt + (isAnime ? ', masterpiece Japanese anime key visual, Studio MAPPA and Ufotable style, dynamic cel shading, vibrant lighting, 8k' : ', cinematic 8k ultra realistic scene, dramatic lighting');
           return fetch(EDGE + sl + 'image', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({prompt: pr, width: 768, height: 768})
+            body: JSON.stringify({prompt: fullPr, width: 768, height: 768})
           }).then(function(r){ return r.ok ? r.json() : null; })
             .then(function(d){ return (d && d.image_url) ? d.image_url : null; })
             .catch(function(){ return null; });
         }));
-        fUrls = fUrls.filter(Boolean);
-        if(!fUrls.length) throw new Error('تعذر توليد المشاهد حالياً');
 
-        var imObjs = await Promise.all(fUrls.map(function(u){ return new Promise(function(res){ var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function(){ res(im); }; im.onerror = function(){ res(null); }; im.src = u; }); }));
+        var validPairs = [];
+        for(var k = 0; k < fUrls.length; k++){
+          if(fUrls[k]) validPairs.push({ url: fUrls[k], scene: scenes[k] });
+        }
+        if(validPairs.length === 0) throw new Error('تعذر توليد رسوم المشاهد حالياً، حاول مجدداً');
+
+        var imObjs = await Promise.all(validPairs.map(function(vp){
+          return new Promise(function(res){
+            var im = new Image(); im.crossOrigin = 'anonymous';
+            im.onload = function(){ res({ img: im, scene: vp.scene }); };
+            im.onerror = function(){ res(null); };
+            im.src = vp.url;
+          });
+        }));
         imObjs = imObjs.filter(Boolean);
 
+        wait.innerHTML = '🎙️ <b>المرحلة 3/4:</b> تسجيل الدبلجة العربية الخاصة بكل شخصية...';
+        var actx = new (window.AudioContext || window.webkitAudioContext)();
+        var dest = actx.createMediaStreamDestination();
+        var audioClips = await Promise.all(imObjs.map(function(item){
+          var sc = item.scene;
+          var ttsU = 'https:' + sl + sl + 'text.pollinations.ai' + sl + encodeURIComponent(sc.line) + '?model=openai-audio&voice=' + sc.voice;
+          return fetch(ttsU).then(function(r){ return r.ok ? r.arrayBuffer() : null; })
+            .then(function(buf){ return buf ? actx.decodeAudioData(buf) : null; })
+            .catch(function(){ return null; });
+        }));
+
+        wait.innerHTML = '🎬 <b>المرحلة 4/4:</b> إخراج التحريك السينمائي ودمج الأصوات والترجمة...';
         var cv = document.createElement('canvas'); cv.width = 768; cv.height = 768;
         var gl = cv.getContext('webgl', {preserveDrawingBuffer: true});
         var vsSrc = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }';
         var fsSrc = 'precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; varying vec2 v_uv;' +
-          'void main(){' +
-          '  vec2 uv = v_uv;' +
-          '  float tiltX = sin(u_time * 1.4 + float(u_mode)) * 0.025;' +
-          '  float tiltY = cos(u_time * 1.1) * 0.02;' +
-          '  float z = (u_mode == 0) ? (1.03 + u_prog * 0.16) : (1.19 - u_prog * 0.16);' +
-          '  uv = (uv - 0.5) / z + 0.5 + vec2(tiltX, tiltY) * (1.0 - length(v_uv - 0.5));' +
-          '  float impact = smoothstep(0.88, 1.0, sin(u_prog * 3.14159));' +
-          '  uv.x += sin(u_time * 38.0) * 0.004 * impact;' +
-          '  uv.y += cos(u_time * 34.0) * 0.004 * impact;' +
-          '  float wind = sin(uv.y * 9.0 - u_time * 4.5) * 0.005 * smoothstep(0.2, 0.9, uv.x);' +
-          '  uv.x += wind;' +
-          '  vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997));' +
-          '  float rShift = texture2D(u_tex, clamp(uv + vec2(0.0035 * impact, 0.0), 0.003, 0.997)).r;' +
-          '  float bShift = texture2D(u_tex, clamp(uv - vec2(0.0035 * impact, 0.0), 0.003, 0.997)).b;' +
-          '  col.r = mix(col.r, rShift, 0.65); col.b = mix(col.b, bShift, 0.65);' +
-          '  float ray = smoothstep(0.75, 0.0, abs((v_uv.x - 0.3) + (v_uv.y - 0.2) * 0.6 + sin(u_time * 0.8) * 0.2));' +
-          '  col.rgb += vec3(0.16, 0.11, 0.05) * ray * 0.55;' +
-          '  float angle = atan(v_uv.y - 0.5, v_uv.x - 0.5);' +
-          '  float speedLines = smoothstep(0.75, 1.0, sin(angle * 48.0 + u_time * 15.0)) * smoothstep(0.32, 0.72, length(v_uv - 0.5));' +
-          '  col.rgb += vec3(0.85, 0.9, 1.0) * speedLines * 0.14 * impact;' +
-          '  float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5));' +
-          '  col.rgb *= mix(0.65, 1.12, vig);' +
-          '  gl_FragColor = col; }';
+          'void main(){ vec2 uv = v_uv; float tiltX = sin(u_time * 1.5 + float(u_mode)) * 0.025; float tiltY = cos(u_time * 1.2) * 0.02;' +
+          'float z = (u_mode == 0) ? (1.03 + u_prog * 0.16) : (1.19 - u_prog * 0.16); uv = (uv - 0.5) / z + 0.5 + vec2(tiltX, tiltY) * (1.0 - length(v_uv - 0.5));' +
+          'float impact = smoothstep(0.86, 1.0, sin(u_prog * 3.14159)); uv.x += sin(u_time * 38.0) * 0.004 * impact; uv.y += cos(u_time * 34.0) * 0.004 * impact;' +
+          'vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997));' +
+          'float angle = atan(v_uv.y - 0.5, v_uv.x - 0.5); float speedLines = smoothstep(0.75, 1.0, sin(angle * 48.0 + u_time * 15.0)) * smoothstep(0.32, 0.72, length(v_uv - 0.5));' +
+          'col.rgb += vec3(0.85, 0.92, 1.0) * speedLines * 0.15 * impact; float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5)); col.rgb *= mix(0.66, 1.12, vig); gl_FragColor = col; }';
         function mkSh(tp, sr){ var sh = gl.createShader(tp); gl.shaderSource(sh, sr); gl.compileShader(sh); return sh; }
         var prog = gl.createProgram(); gl.attachShader(prog, mkSh(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(prog, mkSh(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(prog); gl.useProgram(prog);
         var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
         var posLoc = gl.getAttribLocation(prog, 'a_pos'); gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-        var texList = imObjs.map(function(im){
+
+        var texList = imObjs.map(function(item){
           var tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); return tx;
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, item.img); return tx;
         });
 
         var hud = document.createElement('canvas'); hud.width = 768; hud.height = 768; var hctx = hud.getContext('2d');
-        wait.innerHTML = '🎙️ جاري تسجيل التعليق الصوتي البشري الواقعي ودمجه...';
-        var vStream = hud.captureStream(30);
-        var voiceEl = null, actx = null;
-        try{
-          var ttsUrl = 'https:' + sl + sl + 'text.pollinations.ai' + sl + encodeURIComponent(captions.join(' ... ')) + '?model=openai-audio&voice=onyx';
-          var ar = await fetch(ttsUrl);
-          if(ar.ok){
-            var ablob = await ar.blob();
-            voiceEl = new Audio(URL.createObjectURL(ablob));
-            voiceEl.crossOrigin = 'anonymous';
-            actx = new (window.AudioContext || window.webkitAudioContext)();
-            var srcNode = actx.createMediaElementSource(voiceEl);
-            var dest = actx.createMediaStreamDestination();
-            srcNode.connect(dest);
-            srcNode.connect(actx.destination);
-            dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
-            await voiceEl.play().catch(function(){});
-          }
-        }catch(ae){}
+        var vStream = hud.captureStream(30); dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
         var mimeOut = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
         var rec = new MediaRecorder(vStream, {mimeType: mimeOut}), chunks = [];
         rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
-        var doneRec = new Promise(function(res){ rec.onstop = function(){ if(voiceEl){ try{voiceEl.pause();}catch(ex){} } if(actx){ try{actx.close();}catch(ex){} } res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
+        var doneRec = new Promise(function(res){ rec.onstop = function(){ try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
         rec.start();
 
         var uTime = gl.getUniformLocation(prog, 'u_time'), uProg = gl.getUniformLocation(prog, 'u_prog'), uMode = gl.getUniformLocation(prog, 'u_mode');
-        var pts = Array.from({length: 45}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.2, a: 0.35+Math.random()*0.55}; });
-        var totalFrames = targetSec * 30, perScene = Math.max(Math.floor(totalFrames / texList.length), 30), fc = 0;
+        var pts = Array.from({length: 40}, function(){ return {x: Math.random()*768, y: Math.random()*768, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.4, vy: -0.7-Math.random()*1.4, a: 0.4+Math.random()*0.55}; });
+        var totalFrames = Math.max(targetSec, imObjs.length * 4) * 30;
+        var perScene = Math.floor(totalFrames / imObjs.length), fc = 0, lastSpokenIdx = -1;
 
         await new Promise(function(res){
           var tm = setInterval(function(){
-            var idx = Math.min(Math.floor(fc / perScene), texList.length - 1), lp = (fc % perScene) / perScene;
+            var idx = Math.min(Math.floor(fc / perScene), imObjs.length - 1);
+            var lp = (fc % perScene) / perScene;
+            if(idx !== lastSpokenIdx){
+              lastSpokenIdx = idx;
+              if(audioClips[idx]){
+                try{ var src = actx.createBufferSource(); src.buffer = audioClips[idx]; src.connect(dest); src.connect(actx.destination); src.start(0); }catch(ex){}
+              }
+            }
             gl.viewport(0, 0, 768, 768); gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
             gl.uniform1f(uTime, fc * 0.033); gl.uniform1f(uProg, lp); gl.uniform1i(uMode, idx % 2);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             hctx.clearRect(0, 0, 768, 768); hctx.drawImage(cv, 0, 0);
+
             pts.forEach(function(pt){
               pt.x += pt.vx; pt.y += pt.vy; if(pt.y < 0) pt.y = 768; if(pt.x < 0) pt.x = 768; if(pt.x > 768) pt.x = 0;
-              hctx.beginPath(); hctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2); hctx.fillStyle = 'rgba(255,225,160,' + pt.a + ')'; hctx.fill();
+              hctx.beginPath(); hctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2); hctx.fillStyle = 'rgba(255,220,150,' + pt.a + ')'; hctx.fill();
             });
-            var cap = captions[idx % captions.length];
-            if(cap){
-              var grad = hctx.createLinearGradient(0, 550, 0, 768); grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-              hctx.fillStyle = grad; hctx.fillRect(0, 550, 768, 218);
-              hctx.font = 'bold 34px sans-serif'; hctx.textAlign = 'center'; hctx.fillStyle = '#fff';
-              hctx.shadowColor = 'rgba(0,0,0,0.9)'; hctx.shadowBlur = 8; hctx.fillText(cap, 384, 700); hctx.shadowBlur = 0;
-            }
+
+            var curSc = imObjs[idx].scene;
+            var grad = hctx.createLinearGradient(0, 520, 0, 768); grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+            hctx.fillStyle = grad; hctx.fillRect(0, 520, 768, 248);
+
+            // شارة اسم الشخصية المتحدثة + موجات الصوت الحية
+            var badgeColor = curSc.voice === 'nova' ? '#f472b6' : (curSc.voice === 'echo' ? '#38bdf8' : '#fbbf24');
+            hctx.fillStyle = badgeColor;
+            hctx.beginPath(); hctx.roundRect(284, 595, 200, 36, 18); hctx.fill();
+            hctx.font = 'bold 20px sans-serif'; hctx.textAlign = 'center'; hctx.fillStyle = '#090a0f';
+            hctx.fillText('🎙️ ' + curSc.speaker, 384, 620);
+
+            // نص الترجمة العربية المتحرك أسفل الشاشة
+            hctx.font = 'bold 31px sans-serif'; hctx.fillStyle = '#ffffff';
+            hctx.shadowColor = 'rgba(0,0,0,0.95)'; hctx.shadowBlur = 10;
+            hctx.fillText(curSc.line, 384, 682); hctx.shadowBlur = 0;
+
             if(++fc >= totalFrames){ clearInterval(tm); rec.stop(); res(); }
           }, 33);
         });
 
         var fbVid = await doneRec;
-        wait.remove(); addMsg('AI', '🎬 <b>تم إنتاج الفيديو بنجاح (' + targetSec + ' ثوانٍ):</b>', {vid: fbVid});
-        
+        var castSummary = imObjs.map(function(x){ return '• <b>' + x.scene.speaker + ':</b> ' + x.scene.line; }).join('<br>');
+        wait.remove();
+        addMsg('AI', '🎬 <b>تم إخراج الحلقة بنجاح (دبلجة عربية متعددة الأصوات + ترجمة):</b><br><br>' + castSummary, {vid: fbVid});
       } else if((low.indexOf('صورة') !== -1 || low.indexOf('صور') !== -1 || low.indexOf('ارسم') !== -1 || low.indexOf('صمم') !== -1 || low.indexOf('image') !== -1) && cType !== 'img'){
         var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, '').trim();
         var en = cleanT.length > 2 ? await askAI([{role:'user', content:'Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English, always modest): ' + cleanT}]) : 'majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography';
