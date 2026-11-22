@@ -263,15 +263,35 @@
 
           var fbVid = await doneRec, castSummary = scenes.map(function(x){ return "• <b>" + x.speaker + ":</b> " + x.line; }).join("<br>");
           wait.remove(); window.DH_UI.addMsg("AI", "🎬 <b>تم الإخراج الشامل (خلفيات AI + شخصيات متحركة + أصوات متعددة):</b><br><br>" + castSummary, {vid: fbVid});
-        } else if((low.indexOf("صورة") !== -1 || low.indexOf("صور") !== -1 || low.indexOf("ارسم") !== -1 || low.indexOf("صمم") !== -1 || low.indexOf("image") !== -1) && cType !== "img"){
-          var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, "").trim();
-          var en = cleanT.length > 2 ? await askAI([{role: "user", content: "Write a short 8K English photo prompt (max 15 words, ONLY English): " + cleanT}]) : "majestic Arabian horse in golden Sahara desert at sunset, 8k";
-          en = en.replace(/[^a-zA-Z0-9 ,.-]/g, "").trim().slice(0, 140) || "cinematic 8k landscape";
-          if(isAnime) en += ", masterpiece Japanese anime key visual, Studio Ghibli style, 8k";
-          var ir = await fetch(EDGE + sl + "image", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({prompt: en, width: getDims().w, height: getDims().h})});
+        } else if((low.indexOf("صورة") !== -1 || low.indexOf("صور") !== -1 || low.indexOf("شخصية") !== -1 || low.indexOf("ارسم") !== -1 || low.indexOf("صمم") !== -1 || low.indexOf("image") !== -1) && cType !== "img"){
+          var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم شخصية|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, "").trim() || "محارب أنمي واقعي بدرع فضي";
+          wait.innerHTML = "🧬 <b>المرحلة 1/4 (النحت والهيكل):</b> بناء التناسق التشريحي وملامح الشخصية...<br>🎨 <b>المرحلة 2/4 (الخامات):</b> ضبط الجلد والمعادن والإضاءة السينمائية...";
+          var pipePrompt = 'أنت مدير فني في استوديو ألعاب عالمي. صمم الشخصية التالية عبر 4 مراحل قصيرة بالعربية ثم اكتب في السطر الأخير وصفاً إنجليزياً دقيقاً للتصيير (25 كلمة):
+' +
+            '1- النحت والتشريح: (وصف الوجه والجسد والملابس)
+' +
+            '2- الخامات والإضاءة: (نوع الجلد والقماش والإضاءة)
+' +
+            '3- وضعية الهيكل العظمي: (الوقفة وحركة المفاصل)
+' +
+            '4- RENDER_PROMPT: (وصف إنجليزي احترافي يجمع المراحل الثلاث بدقة 8K)
+' +
+            'الطلب: ' + cleanT;
+          var pipeRes = await askAI([{role: "user", content: pipePrompt}]);
+          var lines = pipeRes.split("
+"), renderEn = "";
+          lines.forEach(function(l){ if(l.indexOf("RENDER_PROMPT") !== -1) renderEn = l.split(":").slice(1).join(":").trim(); });
+          renderEn = renderEn.replace(/[^a-zA-Z0-9 ,.-]/g, "").trim().slice(0, 180) || "photorealistic 3D game character portrait, Unreal Engine 5 Metahuman quality, intricate armor, subsurface scattering skin, studio rim lighting, 8k";
+          if(isAnime) renderEn += ", high budget 3D anime character render, Ufotable and Final Fantasy VII Remake style, sharp eyes, cel-shaded realism, 8k";
+          else renderEn += ", Unreal Engine 5 Metahuman photorealistic render, cinematic depth of field, 8k";
+
+          wait.innerHTML = "🦴 <b>المرحلة 3/4 (ضبط المفاصل):</b> تثبيت الوضعية الحركية...<br>🎬 <b>المرحلة 4/4 (التصيير النهائي 8K):</b> إخراج الشخصية الواقعية...";
+          var ir = await fetch(EDGE + sl + "image", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({prompt: renderEn, width: getDims().w, height: getDims().h})});
           var iData = await ir.json().catch(function(){ return {}; });
-          if(!ir.ok || !iData.image_url) throw new Error("فشل توليد الصورة");
-          wait.remove(); window.DH_UI.addMsg("AI", "🎨 <b>تم تصميم الصورة بدقة عالية:</b>", {img: iData.image_url});
+          if(!ir.ok || !iData.image_url) throw new Error("فشل التصيير النهائي للشخصية");
+          var reportHtml = pipeRes.replace(/4-\s*RENDER_PROMPT:.*/i, "").trim();
+          wait.remove();
+          window.DH_UI.addMsg("AI", "🧬 <b>تم تصميم الشخصية وفق المراحل الاستوديو الأربع:</b><br><br>" + reportHtml, {img: iData.image_url});
         } else {
           var fullT = cType === "doc" ? (t + "\n\n[محتوى الملف " + cName + "]:\n" + String(cData).slice(0, 4000)) : (t || "مرحباً");
           hist.push({role: "user", content: fullT});
