@@ -1,4 +1,6 @@
 
+window.enhanceViaTermux = async function(blob, mime) { try { var r = await fetch("http://127.0.0.1:5050", { method: "POST", headers: { "Content-Type": mime }, body: blob }); if (r.ok) return await r.blob(); } catch (e) {} return blob; };
+
 window.DH_VOICE_PROFILES = [
   { pitch: 1.22, rate: 1.02 },
   { pitch: 0.78, rate: 0.94 },
