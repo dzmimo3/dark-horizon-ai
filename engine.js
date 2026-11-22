@@ -232,7 +232,7 @@
             body: JSON.stringify({prompt: promptFull, width: dm.w, height: dm.h})
           });
           var iData = await ir.json().catch(function(){ return {}; });
-          var imgUrl = iData.image_url || ("https:" + sl + sl + "image.pollinations.ai" + sl + "prompt" + sl + encodeURIComponent(promptFull) + "?width=" + dm.w + "&height=" + dm.h + "&nologo=true");
+          if(!iData || !iData.image_url) throw new Error("الخادم مشغول بتوليد الصورة، أعد المحاولة بعد ثوانٍ"); var imgUrl = iData.image_url;
           
           wait.remove();
           window.DH_UI.addMsg("AI", "🎨 <b>تم تصميم الصورة بدقة 8K (الأبعاد: " + dm.w + "×" + dm.h + "):</b>", {img: imgUrl});
