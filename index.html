@@ -29,7 +29,8 @@ img,video{max-width:100%;border-radius:14px;margin-top:12px;display:block}
 <body>
 <header><div class="brand">✦ DARK HORIZON PRO</div><div class="top-btns"><button id="btnInstall" type="button" class="top-btn" style="display:none">📲 تثبيت التطبيق</button><button id="btnNew" type="button" class="top-btn">+ جديد</button></div></header>
 <div class="studio-bar">
-  <select id="vidDur"><option value="5">⏱️ فيديو: 5 ثوانٍ</option><option value="10" selected>⏱️ فيديو: 10 ثوانٍ</option><option value="15">⏱️ فيديو: 15 ثانية</option><option value="20">⏱️ فيديو: 20 ثانية</option><option value="30">⏱️ فيديو: 30 ثانية</option></select>
+  <select id="tplSel"><option value="">✨ قوالب جاهزة...</option><option value="cat">🐱 قطط طريفة (مثل التطبيق)</option><option value="story">🎬 قصة سينمائية</option><option value="ad">🛍️ إعلان تجاري احترافي</option><option value="sport">⚽ ملخص رياضي حماسي</option></select>
+  <select id="vidDur"><option value="10" selected>⏱️ المدة: 10ث</option><option value="20">⏱️ 20ث</option><option value="30">⏱️ 30ث</option><option value="60">⏱️ 1 دقيقة</option><option value="120">⏱️ 2 دقيقة</option><option value="custom">♾️ مدة مخصصة...</option></select>
   <select id="aspectSel"><option value="1:1">📐 مربع 1:1</option><option value="16:9">🖥️ يوتيوب 16:9</option><option value="9:16">📱 ريلز/تيك توك 9:16</option></select>
   <select id="filterSel"><option value="0">🎨 فلتر: سينمائي طبيعي</option><option value="1">🔥 فلتر: ذهبي دافئ</option><option value="2">🎬 فلتر: أبيض وأسود درامي</option><option value="3">🌌 فلتر: نيون ليلي</option></select>
 </div>
@@ -153,7 +154,7 @@ window.addEventListener('beforeinstallprompt', function(e){
       if(low.indexOf('فيديو') !== -1 || low.indexOf('مقطع') !== -1 || low.indexOf('تحريك') !== -1 || low.indexOf('video') !== -1){
         var asp = document.getElementById('aspectSel') ? document.getElementById('aspectSel').value : '16:9';
         var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
-        var targetSec = matchSec ? Math.min(Math.max(parseInt(matchSec, 10), 4), 45) : (document.getElementById('vidDur') ? parseInt(document.getElementById('vidDur').value, 10) : 10);
+        var targetSec = matchSec ? Math.max(parseInt(matchSec, 10), 4) : (document.getElementById('vidDur') ? parseInt(document.getElementById('vidDur').value, 10) : 10);
         var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|حول صورة إلى فيديو|حرك هذه الصورة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim();
         var enRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'Translate into a short realistic modest English cinematic action scene (10 words max, ONLY English): ' + cleanV}]) : 'scenic desert sunset with Arabian horses running, realistic cinematic';
         var enBase = enRaw.split('\n').pop().replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 130) || 'cinematic realistic motion scene';
@@ -165,7 +166,7 @@ window.addEventListener('beforeinstallprompt', function(e){
         if(vr.ok && vData.video_url){
           wait.remove(); addMsg('AI', '🎬 <b>تم إنتاج الفيديو السينمائي بحركة واقعية:</b>', {vid: vData.video_url});
         } else {
-          var sceneCount = cType === 'img' ? 1 : Math.min(Math.max(Math.ceil(targetSec / 3), 3), 8);
+          var sceneCount = cType === 'img' ? 1 : Math.min(Math.max(Math.ceil(targetSec / 4), 3), 12);
           wait.innerHTML = '🎥 جاري توليد المشاهد والسيناريو المتحرك (' + targetSec + ' ثوانٍ)...';
 
           var capRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'اكتب ' + sceneCount + ' جمل عربية قصيرة جداً ومؤثرة (كل جملة 5 كلمات كحد أقصى في سطر مستقل بدون أرقام) تناسب فيديو عن: ' + cleanV}]) : 'لحظات سينمائية لا تُنسى\nإبداع يتجاوز حدود الخيال\nرؤية فنية متكاملة';
@@ -323,6 +324,31 @@ window.addEventListener('beforeinstallprompt', function(e){
       }
     } catch(err){ wait.innerHTML = '⚠️ ' + (err.message || err); }
   }
+  
+  var tplEl = document.getElementById('tplSel');
+  if(tplEl){
+    tplEl.addEventListener('change', function(){
+      var v = tplEl.value; tplEl.value = '';
+      if(v === 'cat'){ q.value = 'صمم لي فيديو طريف لقط برتقالي سمين يمشي على قدمين ويحمل سلة سمك في سوق شعبي'; doSend(); }
+      else if(v === 'story'){ q.value = 'صمم لي فيديو قصة سينمائية ملهمة عن رحلة عبر الصحراء الذهبية وقت الغروب'; doSend(); }
+      else if(v === 'ad'){ q.value = 'صمم لي فيديو إعلان تجاري فاخر لعطر عربي أصيل مع إضاءة ذهبية'; doSend(); }
+      else if(v === 'sport'){ q.value = 'صمم لي فيديو رياضي حماسي لعداء يركض في ملعب عالمي وقت الغروب'; doSend(); }
+    });
+  }
+  var durEl = document.getElementById('vidDur');
+  if(durEl){
+    durEl.addEventListener('change', function(){
+      if(durEl.value === 'custom'){
+        var cSec = prompt('أدخل مدة الفيديو بالثواني (مثلاً: 45 أو 90 أو 180):', '60');
+        if(cSec && !isNaN(parseInt(cSec, 10))){
+          var opt = document.createElement('option');
+          opt.value = parseInt(cSec, 10); opt.textContent = '⏱️ ' + opt.value + 'ث'; opt.selected = true;
+          durEl.insertBefore(opt, durEl.lastElementChild);
+        } else { durEl.value = '10'; }
+      }
+    });
+  }
+
   document.getElementById('btnSend').addEventListener('click', doSend);
   q.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSend(); });
 })();
