@@ -67,15 +67,19 @@
           if(cType === "img") scenes = scenes.slice(0, 1);
 
           wait.innerHTML = "🎨 <b>2/4:</b> رسم المشاهد وتثبيت ملامح الشخصيات...";
-          var fUrls = cType === "img" ? [cData] : await Promise.all(scenes.map(function(sc){
-            var fullPr = sc.prompt + (isAnime ? ", high budget Japanese anime key visual, Studio MAPPA style, cel shading, 8k" : ", cinematic 8k ultra realistic scene");
+          var fUrls = cType === "img" ? [cData] : await Promise.all(scenes.map(function(sc, idx){
+            var fullPr = sc.prompt + (isAnime ? ", Japanese anime key visual, Studio MAPPA style, 8k" : ", cinematic 8k realistic");
             return fetch(EDGE + sl + "image", {
               method: "POST",
               headers: {"Content-Type": "application/json"},
               body: JSON.stringify({prompt: fullPr, width: 768, height: 768})
             }).then(function(r){ return r.ok ? r.json() : null; })
-              .then(function(d){ return (d && d.image_url) ? d.image_url : null; })
-              .catch(function(){ return null; });
+              .then(function(d){
+                if(d && d.image_url) return d.image_url;
+                return "https:" + sl + sl + "image.pollinations.ai" + sl + "prompt" + sl + encodeURIComponent(fullPr) + "?width=768&height=768&nologo=true&seed=" + (8800 + idx * 17);
+              }).catch(function(){
+                return "https:" + sl + sl + "image.pollinations.ai" + sl + "prompt" + sl + encodeURIComponent(fullPr) + "?width=768&height=768&nologo=true&seed=" + (8800 + idx * 17);
+              });
           }));
 
           var validPairs = [];
