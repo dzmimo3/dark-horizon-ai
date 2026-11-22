@@ -23,7 +23,18 @@ input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:
 img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
 .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .act{background:rgba(147,197,253,0.12);color:#93c5fd;border:1px solid rgba(147,197,253,0.25);padding:7px 14px;border-radius:16px;text-decoration:none;font-size:12px;font-weight:600;cursor:pointer}
-</style></head>
+</style><script>
+(function(){
+  var v = "1795367685";
+  if(localStorage.getItem("dh_v") !== v){
+    localStorage.setItem("dh_v", v);
+    if(window.location.search.indexOf(v) === -1){
+      window.location.replace(window.location.pathname + "?v=" + v);
+    }
+  }
+})();
+</script>
+</head>
 <body>
 <header><div class="brand">✦ DARK HORIZON</div><button id="btnNew" type="button" class="btn-pill">+ محادثة جديدة</button></header>
 <div id="chat"></div>
@@ -64,7 +75,7 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
   });
 
   fileInp.onchange = function(){
-    var f = fileInp.files; if(!f) return; attName = f.name;
+    var f = fileInp.files && fileInp.files.item(0); if(!f) return; attName = f.name;
     var r = new FileReader();
     r.onload = function(ev){ attData = ev.target.result; prevName.textContent = '📎 ' + attName; prevBar.style.display = 'flex'; };
     if(attType === 'doc') r.readAsText(f); else r.readAsDataURL(f);
@@ -105,7 +116,7 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
     var r2 = await fetch('https:' + sl + sl + 'gen.pollinations.ai' + sl + 'v1' + sl + 'chat' + sl + 'completions', {
       method:'POST', headers:{'Content-Type':'application/json', 'Authorization':TOK}, body:JSON.stringify({model:'openai', messages:[sys].concat(msgs.slice(-8))})
     });
-    if(r2.ok){ var d2 = await r2.json(); if(d2.choices && d2.choices && d2.choices.message) return d2.choices.message.content; }
+    if(r2.ok){ var d2 = await r2.json(); var c2 = d2.choices && d2.choices.shift(); if(c2 && c2.message) return c2.message.content; }
     throw new Error('تعذر الاتصال بالمحرك');
   }
   async function doSend(){
@@ -118,7 +129,7 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
     try{
       if(low.indexOf('فيديو') !== -1 || low.indexOf('مقطع') !== -1 || low.indexOf('تحريك') !== -1 || low.indexOf('video') !== -1){
         var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
-        var targetSec = matchSec ? Math.max(parseInt(matchSec, 10), 4) : 10;
+        var targetSec = matchSec ? Math.max(parseInt(matchSec.shift(), 10), 4) : 10;
         var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim();
         var enRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'Translate into a short realistic modest English cinematic action scene (10 words max, ONLY English): ' + cleanV}]) : 'scenic desert sunset with Arabian horses running, realistic cinematic';
         var enBase = enRaw.split('\n').pop().replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 130) || 'cinematic realistic motion scene';
