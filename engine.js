@@ -43,10 +43,16 @@
   }
   function loadThreeJS(){
     return new Promise(function(res){
-      if(window.THREE) return res(window.THREE);
+      if(window.THREE && window.THREE.GLTFLoader) return res(window.THREE);
       var sc = document.createElement("script");
       sc.src = "https://cloudflare.com";
-      sc.onload = function(){ res(window.THREE); };
+      sc.onload = function(){
+        var ld = document.createElement("script");
+        ld.src = "https://jsdelivr.net";
+        ld.onload = function(){ res(window.THREE); };
+        ld.onerror = function(){ res(window.THREE); };
+        document.head.appendChild(ld);
+      };
       sc.onerror = function(){ res(null); };
       document.head.appendChild(sc);
     });
@@ -54,46 +60,57 @@
 
   function create3DStage(THREE, w, h){
     var scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070d19);
-    scene.fog = new THREE.FogExp2(0x070d19, 0.045);
+    scene.background = new THREE.Color(0x060b16);
+    scene.fog = new THREE.FogExp2(0x060b16, 0.038);
     var cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    cam.position.set(0, 3.2, 8.5);
+    cam.position.set(0, 2.8, 8.2);
     var ren = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
     ren.setSize(w, h);
 
-    var amb = new THREE.AmbientLight(0xffffff, 0.65); scene.add(amb);
-    var dirL = new THREE.DirectionalLight(0x93c5fd, 1.3); dirL.position.set(5, 10, 7); scene.add(dirL);
-    var rimL = new THREE.PointLight(0xf43f5e, 1.5, 20); rimL.position.set(-4, 4, -3); scene.add(rimL);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    var dirL = new THREE.DirectionalLight(0x93c5fd, 1.5); dirL.position.set(5, 10, 7); scene.add(dirL);
+    var rimL = new THREE.PointLight(0xf43f5e, 1.8, 25); rimL.position.set(-4, 5, -3); scene.add(rimL);
 
-    var ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({color: 0x0f172a, roughness: 0.7}));
+    var ground = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({color: 0x0b1220, roughness: 0.6}));
     ground.rotation.x = -Math.PI / 2; scene.add(ground);
-    var grid = new THREE.GridHelper(40, 40, 0x38bdf8, 0x1e293b); scene.add(grid);
+    scene.add(new THREE.GridHelper(50, 50, 0x38bdf8, 0x1e293b));
 
-    function makeChar3D(bodyHex, swordHex, xPos, rotY){
-      var root = new THREE.Group(); root.position.set(xPos, 0, 0); root.rotation.y = rotY;
-      var matSkin = new THREE.MeshStandardMaterial({color: 0xffedd5});
-      var matBody = new THREE.MeshStandardMaterial({color: bodyHex});
-      var matDark = new THREE.MeshStandardMaterial({color: 0x1e293b});
+    // جزيئات طاقة ثلاثية الأبعاد (3D Game Particle System)
+    var pGeo = new THREE.BufferGeometry(), pArr = new Float32Array(300 * 3);
+    for(var i = 0; i < 900; i++) pArr[i] = (Math.random() - 0.5) * 18;
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pArr, 3));
+    var pSys = new THREE.Points(pGeo, new THREE.PointsMaterial({color: 0x38bdf8, size: 0.12}));
+    scene.add(pSys);
 
-      var torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.5), matBody); torso.position.y = 1.65; root.add(torso);
-      var head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), matSkin); head.position.y = 2.68; root.add(head);
+    // تحميل مجسمات الألعاب ثلاثية الأبعاد بهيكل عظمي وحركات حقيقية (GLB Skeletal Rig)
+    var glbUrl = "https://threejs.org";
+    var mixers = [], models = [null, null], actionsList = [{}, {}];
 
-      var legL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.0, 0.35), matDark); legL.position.set(-0.24, 0.5, 0); root.add(legL);
-      var legR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.0, 0.35), matDark); legR.position.set(0.24, 0.5, 0); root.add(legR);
-
-      var armL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.0, 0.28), matBody); armL.position.set(-0.65, 1.75, 0); root.add(armL);
-      var armR = new THREE.Group(); armR.position.set(0.65, 2.1, 0);
-      var armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.95, 0.28), matBody); armMesh.position.y = -0.4; armR.add(armMesh);
-      var sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.22), new THREE.MeshStandardMaterial({color: swordHex, emissive: swordHex, emissiveIntensity: 0.7}));
-      sword.position.set(0, -0.85, 0.95); sword.rotation.x = Math.PI / 2; armR.add(sword);
-      root.add(armR); scene.add(root);
-      return {root: root, head: head, legL: legL, legR: legR, armL: armL, armR: armR, baseX: xPos};
+    if(THREE.GLTFLoader){
+      var loader = new THREE.GLTFLoader();
+      [0, 1].forEach(function(idx){
+        loader.load(glbUrl, function(gltf){
+          var m = gltf.scene;
+          m.scale.set(0.65, 0.65, 0.65);
+          m.position.set(idx === 0 ? -1.8 : 1.8, 0, 0);
+          m.rotation.y = idx === 0 ? Math.PI / 2 : -Math.PI / 2;
+          m.traverse(function(c){
+            if(c.isMesh && c.material){
+              c.material = new THREE.MeshToonMaterial({color: idx === 0 ? 0x38bdf8 : 0xf43f5e});
+            }
+          });
+          scene.add(m);
+          models[idx] = m;
+          var mx = new THREE.AnimationMixer(m);
+          mixers.push(mx);
+          gltf.animations.forEach(function(clip){ actionsList[idx][clip.name] = mx.clipAction(clip); });
+          if(actionsList[idx]["Running"]) actionsList[idx]["Running"].play();
+        });
+      });
     }
-
-    var hero = makeChar3D(0x0284c7, 0x38bdf8, -2.2, Math.PI / 2);
-    var rival = makeChar3D(0xdc2626, 0xf43f5e, 2.2, -Math.PI / 2);
-    return {scene: scene, cam: cam, ren: ren, hero: hero, rival: rival};
+    return {scene: scene, cam: cam, ren: ren, mixers: mixers, models: models, actionsList: actionsList, pSys: pSys};
   }
+
   function renderSmartReply(text){
     var d = window.DH_UI.addMsg("AI", text);
     var codeMatch = text.match(/```(?:html|xml)?\s*([\s\(\S\)]*?)```/i);
@@ -216,28 +233,32 @@
               }
 
               if(stage){
-                var spd = curSc.motion === "run" ? 11.0 : (curSc.motion === "walk" ? 5.0 : 8.5);
-                var amp = curSc.motion === "run" ? 0.75 : (curSc.motion === "walk" ? 0.35 : 0.5);
-                [stage.hero, stage.rival].forEach(function(ch, ci){
-                  var ph = tSec * spd + ci * 2.0;
-                  ch.legL.rotation.x = Math.sin(ph) * amp;
-                  ch.legR.rotation.x = -Math.sin(ph) * amp;
-                  ch.armL.rotation.x = -Math.sin(ph) * amp * 0.8;
-                  ch.armR.rotation.x = (curSc.motion === "fight") ? (Math.sin(tSec * 9.0 + ci) * 1.1 - 0.5) : (Math.sin(ph) * 0.4);
-                  ch.root.position.y = Math.abs(Math.sin(ph)) * (curSc.motion === "run" ? 0.25 : 0.08);
-                  if(curSc.motion === "run" || curSc.motion === "walk"){
-                    ch.root.position.x = ch.baseX + Math.sin(tSec * 2.2) * (ci === 0 ? 0.8 : -0.8);
-                  } else {
-                    ch.root.position.x = (ci === 0 ? -1.1 : 1.1) + Math.sin(tSec * 6.0) * 0.25;
+                stage.mixers.forEach(function(mx){ mx.update(0.033); });
+                stage.pSys.rotation.y += 0.008;
+                [0, 1].forEach(function(ci){
+                  var m = stage.models[ci], acts = stage.actionsList[ci];
+                  if(m && acts){
+                    var targetAnim = curSc.motion === "run" ? "Running" : (curSc.motion === "walk" ? "Walking" : "Punch");
+                    if(!acts[targetAnim]) targetAnim = "Idle";
+                    if(m._curAnim !== targetAnim && acts[targetAnim]){
+                      if(m._curAnim && acts[m._curAnim]) acts[m._curAnim].fadeOut(0.2);
+                      acts[targetAnim].reset().fadeIn(0.2).play();
+                      m._curAnim = targetAnim;
+                    }
+                    if(curSc.motion === "run" || curSc.motion === "walk"){
+                      m.position.x = (ci === 0 ? -1.8 : 1.8) + Math.sin(tSec * 2.0) * (ci === 0 ? 1.1 : -1.1);
+                    } else {
+                      m.position.x = (ci === 0 ? -1.1 : 1.1);
+                    }
                   }
-                  if((idx % 2 === ci) && window._isTalking) ch.head.rotation.x = Math.sin(tSec * 22.0) * 0.12;
                 });
-                stage.cam.position.x = Math.sin(tSec * 0.7) * 2.2;
-                stage.cam.position.z = 7.2 - Math.sin(lp * Math.PI) * 1.4;
-                stage.cam.lookAt(0, 1.6, 0);
+                stage.cam.position.x = Math.sin(tSec * 0.65) * 2.4;
+                stage.cam.position.z = 7.4 - Math.sin(lp * Math.PI) * 1.5;
+                stage.cam.lookAt(0, 1.5, 0);
                 stage.ren.render(stage.scene, stage.cam);
                 hctx.drawImage(stage.ren.domElement, 0, 0);
               }
+
               var grad = hctx.createLinearGradient(0, dm.h*0.72, 0, dm.h); grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.94)");
               hctx.fillStyle = grad; hctx.fillRect(0, dm.h*0.72, dm.w, dm.h*0.28);
               hctx.fillStyle = curSc.tone === "soft" ? "#f472b6" : (curSc.tone === "deep" ? "#fbbf24" : "#38bdf8");
