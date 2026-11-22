@@ -10,7 +10,7 @@ flex-direction:column;height:100dvh;overflow:hidden}
 header{padding:14px 18px;background:#11131a;display:flex;
 justify-content:space-between;align-items:center;
 border-bottom:1px solid rgba(255,255,255,0.08)}
-.brand{font-weight:900;font-size:16px;color:#93c5fd}
+.brand{font-weight:900;font-size:16px;color:#93c5fd;letter-spacing:0.5px}
 .btn-new{background:rgba(255,255,255,0.08);color:#fff;
 border:1px solid rgba(255,255,255,0.15);border-radius:20px;
 padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
@@ -29,7 +29,7 @@ border-radius:20px;padding:8px;width:255px;z-index:999;
 flex-direction:column;gap:5px;box-shadow:0 14px 35px #000}
 .plus-menu.show{display:flex}
 .pm-item{padding:12px 14px;border-radius:14px;background:none;
-border:none;color:#fff;font-size:14px;text-align:right;width:100%}
+border:none;color:#fff;font-size:14px;text-align:right;width:100%;cursor:pointer}
 .pm-item:active{background:rgba(147,197,253,0.2)}
 #preview-bar{display:none;align-items:center;gap:10px;
 background:#1a1d26;padding:8px 14px;border-radius:14px;
@@ -46,34 +46,54 @@ color:#fff;font-size:15px;padding:8px 6px;outline:none;min-width:0}
 background:linear-gradient(135deg,#60a5fa,#818cf8);color:#090a0f;
 font-size:18px;font-weight:900;flex-shrink:0;cursor:pointer}
 img,video{max-width:100%;border-radius:14px;margin-top:10px}
-.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.act{background:rgba(147,197,253,0.15);color:#93c5fd;
-border:1px solid rgba(147,197,253,0.3);padding:7px 14px;
-border-radius:16px;text-decoration:none;font-size:12px}
+pre{background:#0a0c10;padding:12px;border-radius:10px;overflow-x:auto;direction:ltr;text-align:left;font-size:13px}
+code{font-family:monospace}
+.code-run-btn{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:8px 16px;border-radius:12px;font-weight:bold;font-size:13px;cursor:pointer;margin-top:8px;display:inline-flex;align-items:center;gap:6px}
+#code-modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;flex-direction:column}
+#code-modal.show{display:flex}
+#code-modal header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#181c26}
+#code-modal iframe{flex:1;border:none;background:#fff}
 </style></head><body>
 <header>
-  <div class="brand">✦ DARK HORIZON</div>
-  <div style="display:flex;gap:6px;align-items:center"><select id="aspectSel" style="background:rgba(255,255,255,0.08);color:#93c5fd;border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:6px 10px;font-size:11px;font-weight:bold;outline:none"><option value="1:1">📐 1:1</option><option value="16:9">🖥️ 16:9</option><option value="9:16">📱 9:16</option></select><button id="btnNew" type="button" class="btn-new">+ جديد</button></div>
+  <div class="brand">✦ DARK HORIZON AI</div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <select id="aspectSel" title="اختيار الأبعاد" style="background:rgba(255,255,255,0.08);color:#93c5fd;border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:6px 10px;font-size:11px;font-weight:bold;outline:none;cursor:pointer">
+      <option value="1:1">📐 1:1</option>
+      <option value="16:9">🖥️ 16:9</option>
+      <option value="9:16">📱 9:16</option>
+    </select>
+    <button id="btnNew" type="button" class="btn-new">+ جديد</button>
+  </div>
 </header>
 <div id="chat"></div>
 <div class="dock">
   <div id="plusMenu" class="plus-menu">
     <button type="button" class="pm-item" data-act="img">🖼️ إرفاق صورة</button>
-    <button type="button" class="pm-item" data-act="doc">📄 إرفاق ملف</button>
-    <button type="button" class="pm-item" data-act="gen-img">🎨 تصميم صورة 8K</button>
-    <button type="button" class="pm-item" data-act="gen-vid">🎬 إنتاج حلقة أنمي</button>
+    <button type="button" class="pm-item" data-act="doc">📄 إرفاق ملف (txt/py/json)</button>
+    <button type="button" class="pm-item" data-act="gen-img">🎨 تصميم صورة 8K (واقعي/أنمي/سينمائي)</button>
+    <button type="button" class="pm-item" data-act="gen-vid">🎬 إنتاج حلقة أنمي وسينما</button>
   </div>
   <div id="preview-bar">
     <span id="prev-name">📎 مرفق</span>
-    <button id="btnClear" type="button" style="margin-right:auto;background:none;border:none;color:#f87171;font-weight:bold">✖</button>
+    <button id="btnClear" type="button" style="margin-right:auto;background:none;border:none;color:#f87171;font-weight:bold;cursor:pointer">✖</button>
   </div>
   <input type="file" id="fileInp" style="display:none">
   <div class="bar">
-    <button id="btnPlus" type="button" class="plus">+</button>
-    <input type="text" id="q" placeholder="اكتب طلبك هنا...">
-    <button id="btnMic" type="button" class="plus" style="font-size:18px;margin-left:2px">🎙️</button><button id="btnSend" type="button" class="send">➤</button>
+    <button id="btnPlus" type="button" class="plus" title="قائمة الخدمات">+</button>
+    <input type="text" id="q" placeholder="اكتب طلبك هنا (صورة 8K، حلقة أنمي، أو استفسار)...">
+    <button id="btnMic" type="button" class="plus" style="font-size:18px;margin-left:2px" title="الميكروفون الصوتي">🎙️</button>
+    <button id="btnSend" type="button" class="send" title="إرسال">➤</button>
   </div>
 </div>
+
+<div id="code-modal">
+  <header>
+    <span style="font-weight:bold;color:#34d399">⚡ معاينة تشغيل الكود المباشر</span>
+    <button type="button" id="closeModal" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:bold;cursor:pointer">إغلاق ✖</button>
+  </header>
+  <iframe id="codeFrame"></iframe>
+</div>
+
 <script>
 window.DH_UI = { attData: null, attType: null, attName: "" };
 (function(){
@@ -83,6 +103,13 @@ window.DH_UI = { attData: null, attType: null, attName: "" };
   var fileInp = document.getElementById("fileInp");
   var prevBar = document.getElementById("preview-bar");
   var prevName = document.getElementById("prev-name");
+  var codeModal = document.getElementById("code-modal");
+  var codeFrame = document.getElementById("codeFrame");
+
+  document.getElementById("closeModal").onclick = function(){
+    codeModal.classList.remove("show");
+    codeFrame.srcdoc = "";
+  };
 
   window.DH_UI.clearAttachment = function(){
     window.DH_UI.attData = null;
@@ -95,7 +122,28 @@ window.DH_UI = { attData: null, attType: null, attName: "" };
   window.DH_UI.addMsg = function(role, text, media){
     var d = document.createElement("div");
     d.className = "msg " + role;
-    d.innerHTML = String(text).replace(/\n/g, "<br>");
+    
+    // Parse code blocks and markdown
+    var parsedText = String(text || "");
+    var codeSnippet = null;
+    var codeMatch = parsedText.match(/```(?:html|javascript|js)?\s*([\s\S]*?)```/i);
+    if(codeMatch){
+      codeSnippet = codeMatch[1];
+    }
+
+    d.innerHTML = parsedText.replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>").replace(/\n/g, "<br>");
+
+    if(codeSnippet){
+      var runBtn = document.createElement("button");
+      runBtn.className = "code-run-btn";
+      runBtn.innerHTML = "▶ تشغيل الكود في معاينة حية";
+      runBtn.onclick = function(){
+        codeFrame.srcdoc = codeSnippet;
+        codeModal.classList.add("show");
+      };
+      d.appendChild(runBtn);
+    }
+
     if(media && media.user_img){
       var uim = document.createElement("img");
       uim.src = media.user_img;
@@ -119,31 +167,37 @@ window.DH_UI = { attData: null, attType: null, attName: "" };
     chat.scrollTop = chat.scrollHeight;
     return d;
   };
+
   document.getElementById("btnNew").onclick = function(){
     localStorage.removeItem("dh_hist");
     chat.innerHTML = "";
     if(window.DH_ENGINE) window.DH_ENGINE.reset();
   };
+
   document.getElementById("btnPlus").onclick = function(e){
     e.stopPropagation();
     menu.classList.toggle("show");
   };
+
   document.onclick = function(e){
     if(!menu.contains(e.target) && e.target.id !== "btnPlus"){
       menu.classList.remove("show");
     }
   };
+
   document.getElementById("btnClear").onclick = window.DH_UI.clearAttachment;
+
   menu.querySelectorAll(".pm-item").forEach(function(b){
     b.onclick = function(){
       var act = b.getAttribute("data-act");
       menu.classList.remove("show");
       if(act === "img"){ fileInp.accept = "image/*"; window.DH_UI.attType = "img"; fileInp.click(); }
       if(act === "doc"){ fileInp.accept = ".txt,.py,.json"; window.DH_UI.attType = "doc"; fileInp.click(); }
-      if(act === "gen-img"){ q.value = "صمم لي صورة 8K لـ "; q.focus(); }
-      if(act === "gen-vid"){ q.value = "اصنع حلقة أنمي عن "; q.focus(); }
+      if(act === "gen-img"){ q.value = "صمم لي صورة 8K واقعية لـ "; q.focus(); }
+      if(act === "gen-vid"){ q.value = "اصنع حلقة أنمي سينمائية عن "; q.focus(); }
     };
   });
+
   fileInp.onchange = function(){
     var f = fileInp.files[0];
     if(!f) return;
@@ -157,13 +211,15 @@ window.DH_UI = { attData: null, attType: null, attName: "" };
     if(window.DH_UI.attType === "doc") r.readAsText(f);
     else r.readAsDataURL(f);
   };
+
   function goSend(){
     var txt = q.value.trim();
     if(!txt && !window.DH_UI.attData) return;
     if(window.DH_ENGINE) window.DH_ENGINE.send(txt);
   }
-  
+
   if("serviceWorker" in navigator){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }
+
   var btnMic = document.getElementById("btnMic");
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(btnMic && SR){
@@ -171,11 +227,13 @@ window.DH_UI = { attData: null, attType: null, attName: "" };
     btnMic.onclick = function(){ btnMic.style.background = "#ef4444"; btnMic.style.color = "#fff"; try{ recg.start(); }catch(e){} };
     recg.onresult = function(ev){ q.value = ev.results[0][0].transcript; btnMic.style.background = ""; btnMic.style.color = ""; goSend(); };
     recg.onerror = recg.onend = function(){ btnMic.style.background = ""; btnMic.style.color = ""; };
-  } else if(btnMic){ btnMic.style.display = "none"; }
+  } else if(btnMic){
+    btnMic.onclick = function(){ alert("المتصفح لا يدعم الإدخال الصوتي المباشر"); };
+  }
 
   document.getElementById("btnSend").onclick = goSend;
   q.onkeydown = function(e){ if(e.key === "Enter") goSend(); };
 })();
 </script>
-<script src="./engine.js?v=3"></script>
+<script src="./engine.js?v=4"></script>
 </body></html>
