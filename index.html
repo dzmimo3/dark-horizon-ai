@@ -172,14 +172,29 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
         });
 
         var hud = document.createElement('canvas'); hud.width = 768; hud.height = 768; var hctx = hud.getContext('2d');
-        var actx = new (window.AudioContext || window.webkitAudioContext)();
-        var dest = actx.createMediaStreamDestination(), mg = actx.createGain(); mg.gain.value = 0.14; mg.connect(dest);
-        var oscs = [130.81, 164.81, 196.00, 261.63].map(function(fq, i){ var o = actx.createOscillator(), g = actx.createGain(); o.type = i%2===0?'sine':'triangle'; o.frequency.value = fq; g.gain.value = 0.18/(i+1); o.connect(g); g.connect(mg); o.start(); return o; });
-        var vStream = hud.captureStream(30); dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
+        wait.innerHTML = '🎙️ جاري تسجيل التعليق الصوتي البشري الواقعي ودمجه...';
+        var vStream = hud.captureStream(30);
+        var voiceEl = null, actx = null;
+        try{
+          var ttsUrl = 'https:' + sl + sl + 'text.pollinations.ai' + sl + encodeURIComponent(captions.join(' ... ')) + '?model=openai-audio&voice=onyx';
+          var ar = await fetch(ttsUrl);
+          if(ar.ok){
+            var ablob = await ar.blob();
+            voiceEl = new Audio(URL.createObjectURL(ablob));
+            voiceEl.crossOrigin = 'anonymous';
+            actx = new (window.AudioContext || window.webkitAudioContext)();
+            var srcNode = actx.createMediaElementSource(voiceEl);
+            var dest = actx.createMediaStreamDestination();
+            srcNode.connect(dest);
+            srcNode.connect(actx.destination);
+            dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
+            await voiceEl.play().catch(function(){});
+          }
+        }catch(ae){}
         var mimeOut = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
         var rec = new MediaRecorder(vStream, {mimeType: mimeOut}), chunks = [];
         rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
-        var doneRec = new Promise(function(res){ rec.onstop = function(){ oscs.forEach(function(o){ try{o.stop();}catch(ex){} }); try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
+        var doneRec = new Promise(function(res){ rec.onstop = function(){ if(voiceEl){ try{voiceEl.pause();}catch(ex){} } if(actx){ try{actx.close();}catch(ex){} } res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
         rec.start();
 
         var uTime = gl.getUniformLocation(prog, 'u_time'), uProg = gl.getUniformLocation(prog, 'u_prog'), uMode = gl.getUniformLocation(prog, 'u_mode');
@@ -210,7 +225,7 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
 
         var fbVid = await doneRec;
         wait.remove(); addMsg('AI', '🎬 <b>تم إنتاج الفيديو بنجاح (' + targetSec + ' ثوانٍ):</b>', {vid: fbVid});
-        if(captions.length && 'speechSynthesis' in window){ var ut = new SpeechSynthesisUtterance(captions.join(' ، ')); ut.lang = 'ar-SA'; window.speechSynthesis.speak(ut); }
+        
       } else if((low.indexOf('صورة') !== -1 || low.indexOf('صور') !== -1 || low.indexOf('ارسم') !== -1 || low.indexOf('صمم') !== -1 || low.indexOf('image') !== -1) && cType !== 'img'){
         var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, '').trim();
         var en = cleanT.length > 2 ? await askAI([{role:'user', content:'Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English, always modest): ' + cleanT}]) : 'majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography';
