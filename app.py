@@ -135,7 +135,21 @@ def api_video():
             last_err = f"{res.status_code}: {res.text[:140]}"
         except Exception as ex:
             last_err = str(ex)
-    return cors_json({"error": f"Fal.ai: {last_err}"}, 502)
+
+    # مسار الطوارئ المجاني عبر Hugging Face عند انتهاء رصيد Fal.ai
+    hf_tok = os.environ.get("HF_TOKEN")
+    if hf_tok and not img_url:
+        for hfm in [f"Wan-AI{sl}Wan2.1-T2V-1.3B", f"zai-org{sl}CogVideoX-2b"]:
+            try:
+                hu = f"https:{sl}{sl}router.huggingface.co{sl}hf-inference{sl}models{sl}{hfm}"
+                hr = http.post(hu, headers={"Authorization": f"Bearer {hf_tok}", "Content-Type": "application/json"}, json={"inputs": prompt}, timeout=90)
+                if hr.status_code == 200 and len(hr.content) > 15000:
+                    import base64
+                    b64v = base64.b64encode(hr.content).decode("utf-8")
+                    return cors_json({"video_url": f"data:video/mp4;base64,{b64v}"})
+            except Exception:
+                pass
+    return cors_json({"error": "fallback_to_storyboard"}, 502)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
