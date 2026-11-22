@@ -144,8 +144,13 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
         var shotStyles = [', wide establishing shot', ', dynamic medium tracking shot', ', dramatic low angle shot', ', detailed close-up shot, 8k', ', aerial panoramic view'];
         var fUrls = cType === 'img' ? [cData] : await Promise.all(Array.from({length: sceneCount}, function(_, idx){
           var pr = enBase + shotStyles[idx % shotStyles.length];
-          var u = 'https:' + sl + sl + 'gen.pollinations.ai' + sl + 'image' + sl + encodeURIComponent(pr) + '?width=768&height=768&model=flux&nologo=true&seed=' + (9500 + idx*47 + Math.floor(Math.random()*500));
-          return fetch(u, {headers:{'Authorization':TOK}}).then(function(r){return r.ok?r.blob():null;}).then(function(b){return b?URL.createObjectURL(b):null;}).catch(function(){return null;});
+          return fetch(EDGE + sl + 'image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({prompt: pr, width: 768, height: 768})
+          }).then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(d){ return (d && d.image_url) ? d.image_url : null; })
+            .catch(function(){ return null; });
         }));
         fUrls = fUrls.filter(Boolean);
         if(!fUrls.length) throw new Error('تعذر توليد المشاهد حالياً');
