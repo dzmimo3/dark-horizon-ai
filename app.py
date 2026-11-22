@@ -23,21 +23,36 @@ def get_key(name):
     return first(tuple(x.strip() for x in val.split(",") if x.strip()), "")
 
 def search_web(q):
+    sl = chr(47)
     res = []
-    if any(w in q.lower() for w in ("طقس", "حرارة", "جو", "weather", "الجلفة")):
+    hdrs = {"User-Agent": "DarkHorizonProduction/1.0"}
+    # الطقس الحي في الجلفة ومدن الجزائر
+    if any(w in q.lower() for w in ("طقس", "حرارة", "جو", "weather", "الجلفة", "djelfa")):
         try:
-            w = requests.get("https://open-meteo.com", timeout=5).json().get("current_weather", {})
-            if w: res.append(f"الطقس الحي في الجلفة: {w.get('temperature')}°C، الرياح {w.get('windspeed')} كم/س.")
+            w = requests.get(f"https:{sl}{sl}://open-meteo.com{sl}v1{sl}forecast?latitude=34.67&longitude=3.25&current_weather=true", timeout=4).json().get("current_weather", {})
+            if w: res.append(f"[الطقس الحي في الجلفة]: الحرارة {w.get('temperature')}°C، الرياح {w.get('windspeed')} كم/س.")
         except Exception: pass
+    # البحث الحي في الويب (Tavily AI)
     tv = get_key("TAVILY_API_KEY")
     if tv:
         try:
-            r = requests.post("https://tavily.com", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=8)
+            r = requests.post(f"https:{sl}{sl}://tavily.com{sl}search", json={"api_key": tv, "query": q, "include_answer": True, "max_results": 3}, timeout=6)
             if r.status_code == 200:
                 d = r.json()
-                if d.get("answer"): res.append(d["answer"])
-                for it in d.get("results", [])[:2]: res.append(f"- {it.get('title','')}: {it.get('content','')[:150]}")
+                if d.get("answer"): res.append(f"[بحث الويب الموثق]: {d['answer']}")
+                for it in d.get("results", ())[:2]:
+                    res.append(f"- {it.get('title','')}: {it.get('content','')[:160]}")
         except Exception: pass
+    # الموسوعة العالمية (Wikipedia)
+    try:
+        wr = requests.get(f"https:{sl}{sl}ar.wikipedia.org{sl}w{sl}api.php", params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 1}, headers=hdrs, timeout=4).json()
+        hits = wr.get("query", {}).get("search", ())
+        if hits:
+            title = first(hits, {}).get("title", "")
+            if title:
+                sr = requests.get(f"https:{sl}{sl}ar.wikipedia.org{sl}api{sl}rest_v1{sl}page{sl}summary{sl}" + urllib.parse.quote(title), headers=hdrs, timeout=4).json()
+                if sr.get("extract"): res.append(f"[ويكيبيديا - {title}]: {sr['extract'][:350]}")
+    except Exception: pass
     return "\n".join(res)
 
 def ai_brain(messages, img_b64=None):
@@ -271,7 +286,7 @@ def api_chat():
             img = create_image(text)
             reply, media = ("🎨 <b>تم تصميم الصورة بدقة عالية:</b>", {"img": img}) if img else ("⚠️ تعذر تصميم الصورة حالياً، أعد المحاولة.", {})
         else:
-            ctx = search_web(text) if any(w in low for w in ("ابحث", "أخبار", "طقس", "من هو", "ما هو", "اليوم", "2026")) else ""
+            ctx = search_web(text) if any(w in low for w in ("ابحث", "أخبار", "اخبار", "طقس", "حرارة", "من هو", "من هي", "ما هو", "ما هي", "كم", "متى", "أين", "اين", "اليوم", "2026")) else ""
             if ctx and hist: hist[-1]["content"] = f"معلومات محدثة:\n{ctx}\n\nسؤال المستخدم: {full_user_text}"
             reply = ai_brain(hist, att_data if att_type == "img" else None)
         with db_lock:
