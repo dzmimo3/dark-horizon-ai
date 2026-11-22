@@ -1,31 +1,31 @@
-<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#090a0f"><link rel="manifest" href="./manifest.json"><title>DARK HORIZON AI</title>
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#07080c"><link rel="manifest" href="./manifest.json"><title>DARK HORIZON AI</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:radial-gradient(circle at top,#161923 0%,#090a0f 100%);color:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
-header{padding:12px 16px;background:rgba(15,17,24,0.88);backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.07)}
-.brand{font-weight:800;font-size:16px;background:linear-gradient(135deg,#93c5fd,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.btn-pill{background:rgba(255,255,255,0.07);color:#e5e7eb;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
-.btn-pill:active{transform:scale(0.95);background:rgba(147,197,253,0.2)}
-#chat{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:14px}
-.msg{max-width:88%;padding:14px 16px;border-radius:22px;line-height:1.65;font-size:15px;word-wrap:break-word;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
-.USER{align-self:flex-start;background:linear-gradient(135deg,#232734,#1a1d26);border:1px solid rgba(255,255,255,0.08);border-bottom-right-radius:6px}
-.AI{align-self:flex-end;background:rgba(20,23,31,0.92);border:1px solid rgba(147,197,253,0.16);border-bottom-left-radius:6px;width:92%}
-.dock{position:relative;padding:8px 12px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#090a0f 82%,transparent)}
-.plus-menu{display:none;position:absolute;bottom:78px;right:14px;background:rgba(24,27,36,0.97);backdrop-filter:blur(16px);border:1px solid rgba(147,197,253,0.25);border-radius:20px;padding:8px;width:255px;box-shadow:0 16px 40px rgba(0,0,0,0.75);z-index:999;flex-direction:column;gap:4px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+body{margin:0;background:radial-gradient(circle at 50% 0%,#171c2b 0%,#07080c 100%);color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+header{padding:14px 18px;background:rgba(12,14,20,0.85);backdrop-filter:blur(16px);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);z-index:50}
+.brand{font-weight:900;font-size:17px;background:linear-gradient(135deg,#38bdf8,#818cf8,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn-modern{background:rgba(255,255,255,0.08);color:#f1f5f9;border:1px solid rgba(255,255,255,0.14);border-radius:99px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-modern:active{transform:scale(0.92);background:rgba(56,189,248,0.25)}
+#chat{flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:14px;user-select:text}
+.msg{max-width:88%;padding:14px 17px;border-radius:22px;line-height:1.65;font-size:15px;word-wrap:break-word;box-shadow:0 8px 24px rgba(0,0,0,0.28)}
+.USER{align-self:flex-start;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(56,189,248,0.22);border-bottom-right-radius:6px}
+.AI{align-self:flex-end;background:rgba(18,21,30,0.94);border:1px solid rgba(255,255,255,0.09);border-bottom-left-radius:6px;width:92%}
+.dock{position:relative;padding:10px 14px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(to top,#07080c 85%,transparent);z-index:60}
+.plus-menu{display:none;position:absolute;bottom:84px;right:16px;background:rgba(19,23,34,0.98);backdrop-filter:blur(20px);border:1px solid rgba(56,189,248,0.3);border-radius:22px;padding:8px;width:265px;box-shadow:0 20px 50px rgba(0,0,0,0.8);z-index:999;flex-direction:column;gap:5px}
 .plus-menu.show{display:flex}
-.pm-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:14px;background:transparent;border:none;color:#f3f4f6;font-size:14px;font-weight:500;cursor:pointer;text-align:right;width:100%}
-.pm-item:active{background:rgba(147,197,253,0.18)}
-#preview-bar{display:none;align-items:center;gap:10px;background:#1a1d26;padding:8px 14px;border-radius:16px;margin-bottom:8px;border:1px solid rgba(147,197,253,0.25);font-size:13px}
-.bar{display:flex;align-items:center;gap:8px;background:rgba(24,27,36,0.95);border:1px solid rgba(255,255,255,0.14);border-radius:32px;padding:6px 8px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
-.plus{width:42px;height:42px;border-radius:50%;border:none;background:rgba(147,197,253,0.14);color:#93c5fd;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0}
-input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;padding:8px 6px;outline:none;min-width:0}
-.send{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,#60a5fa,#818cf8);color:#090a0f;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pm-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:15px;background:rgba(255,255,255,0.03);border:none;color:#f8fafc;font-size:14px;font-weight:600;cursor:pointer;text-align:right;width:100%}
+.pm-item:active{background:rgba(56,189,248,0.2)}
+#preview-bar{display:none;align-items:center;gap:10px;background:#161b28;padding:9px 14px;border-radius:16px;margin-bottom:8px;border:1px solid rgba(56,189,248,0.3);font-size:13px}
+.bar{display:flex;align-items:center;gap:8px;background:rgba(20,24,36,0.95);border:1px solid rgba(255,255,255,0.16);border-radius:99px;padding:6px 8px}
+.plus{width:44px;height:44px;border-radius:50%;border:1px solid rgba(56,189,248,0.3);background:rgba(56,189,248,0.18);color:#38bdf8;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0}
+input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;padding:8px 6px;outline:none;min-width:0;user-select:text}
+.send{width:46px;height:46px;border-radius:50%;border:none;background:linear-gradient(135deg,#38bdf8,#818cf8);color:#07080c;font-size:19px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
 .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.act{background:rgba(147,197,253,0.12);color:#93c5fd;border:1px solid rgba(147,197,253,0.25);padding:7px 14px;border-radius:16px;text-decoration:none;font-size:12px;font-weight:600;cursor:pointer}
+.act{background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);padding:8px 15px;border-radius:99px;text-decoration:none;font-size:12px;font-weight:700;cursor:pointer}
 </style></head>
 <body>
-<header><div class="brand">✦ DARK HORIZON</div><button id="btnNew" type="button" class="btn-pill">+ محادثة جديدة</button></header>
+<header><div class="brand">✦ DARK HORIZON</div><button id="btnNew" type="button" class="btn-modern">+ محادثة جديدة</button></header>
 <div id="chat"></div>
 <div class="dock">
   <div id="plusMenu" class="plus-menu">
@@ -38,92 +38,29 @@ img,video{max-width:100%;border-radius:16px;margin-top:12px;display:block}
   <input type="file" id="fileInp" style="display:none">
   <div class="bar"><button id="btnPlus" type="button" class="plus">+</button><input type="text" id="q" placeholder="اكتب طلبك (محادثة، صورة، فيديو، أنمي)..."><button id="btnSend" type="button" class="send">➤</button></div>
 </div>
-<script>
+<script id="ui-core">
+window.DH_UI = { attData: null, attType: null, attName: "" };
 (function(){
-  var hist=[],attData=null,attType=null,attName="";
-  try{hist=JSON.parse(localStorage.getItem("dh_hist")||"[]");}catch(e){hist=[];}
-  var chat=document.getElementById("chat"),q=document.getElementById("q"),menu=document.getElementById("plusMenu"),fileInp=document.getElementById("fileInp"),prevBar=document.getElementById("preview-bar"),prevName=document.getElementById("prev-name");
-  var sl=String.fromCharCode(47),EDGE="https:"+sl+sl+"hidden-bread-95eb.dz30007000.workers.dev";
-  function saveH(){try{localStorage.setItem("dh_hist",JSON.stringify(hist.slice(-20)));}catch(e){}}
-  document.getElementById("btnNew").onclick=function(){hist=[];saveH();chat.innerHTML="";};
-  document.getElementById("btnPlus").onclick=function(e){e.stopPropagation();menu.classList.toggle("show");};
-  document.onclick=function(e){if(!menu.contains(e.target)&&e.target.id!=="btnPlus")menu.classList.remove("show");};
-  document.getElementById("btnClear").onclick=function(){attData=null;attType=null;attName="";prevBar.style.display="none";};
-  menu.querySelectorAll(".pm-item").forEach(function(b){b.onclick=function(){var act=b.getAttribute("data-act");menu.classList.remove("show");if(act==="img"){fileInp.accept="image/*";attType="img";fileInp.click();}else if(act==="doc"){fileInp.accept=".txt,.py,.json,.csv,.md,.html,.js";attType="doc";fileInp.click();}else if(act==="gen-img"){q.value="صمم لي صورة سينمائية بدقة 8K لـ ";q.focus();}else if(act==="gen-vid"){q.value="اصنع حلقة أنمي حوارية عن ";q.focus();}};});
-  fileInp.onchange=function(){var f=fileInp.files&&fileInp.files.item(0);if(!f)return;attName=f.name;var r=new FileReader();r.onload=function(ev){attData=ev.target.result;prevName.textContent="📎 "+attName;prevBar.style.display="flex";};if(attType==="doc")r.readAsText(f);else r.readAsDataURL(f);};
-  function addMsg(role,text,media){
-    var d=document.createElement("div");d.className="msg "+role;d.innerHTML=String(text).replace(/\n/g,"<br>");
-    if(media&&media.user_img){var uim=document.createElement("img");uim.src=media.user_img;uim.style.maxHeight="220px";d.appendChild(uim);}
-    if(media&&media.img){var im=document.createElement("img");im.src=media.img;d.appendChild(im);var ac=document.createElement("div");ac.className="actions";var dl=document.createElement("a");dl.className="act";dl.href=media.img;dl.download="DarkHorizon_8K.jpg";dl.target="_blank";dl.textContent="⬇️ تحميل الصورة";ac.appendChild(dl);d.appendChild(ac);}
-    if(media&&media.vid){var vd=document.createElement("video");vd.src=media.vid;vd.controls=true;vd.autoplay=true;vd.loop=true;vd.playsInline=true;d.appendChild(vd);var acv=document.createElement("div");acv.className="actions";var dlv=document.createElement("a");dlv.className="act";dlv.href=media.vid;dlv.download="DarkHorizon_Anime.mp4";dlv.target="_blank";dlv.textContent="⬇️ تحميل الفيديو";acv.appendChild(dlv);d.appendChild(acv);}
-    if(role==="AI"&&(!media||(!media.img&&!media.vid))){var ac2=document.createElement("div");ac2.className="actions";var cp=document.createElement("button");cp.type="button";cp.className="act";cp.textContent="📋 نسخ";cp.onclick=function(){navigator.clipboard.writeText(text);cp.textContent="✅ تم النسخ";setTimeout(function(){cp.textContent="📋 نسخ";},1500);};ac2.appendChild(cp);d.appendChild(ac2);}
-    chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;
-  }
-  hist.forEach(function(m){addMsg(m.role==="user"?"USER":"AI",m.content);});
-  async function askAI(msgs,imgData){
-    var r=await fetch(EDGE+sl+"chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:msgs.slice(-8),image:imgData||null})});
-    if(r.ok){var d=await r.json();if(d&&d.reply)return d.reply;}
-    throw new Error("تعذر الاتصال بالمحرك السحابي");
-  }
-  async function doSend(){
-    var t=q.value.trim();if(!t&&!attData)return;q.value="";
-    var cData=attData,cType=attType,cName=attName;attData=null;attType=null;attName="";prevBar.style.display="none";
-    addMsg("USER",t||("📎 ملف: "+cName),cType==="img"?{user_img:cData}:null);
-    var wait=addMsg("AI","⚡ جاري التنفيذ...");var low=t.toLowerCase();
-    var isAnime=low.indexOf("انمي")!==-1||low.indexOf("أنمي")!==-1||low.indexOf("كرتون")!==-1||low.indexOf("anime")!==-1;
-    try{
-      if(low.indexOf("فيديو")!==-1||low.indexOf("مقطع")!==-1||low.indexOf("تحريك")!==-1||low.indexOf("انمي")!==-1||low.indexOf("أنمي")!==-1||low.indexOf("حلقة")!==-1||low.indexOf("video")!==-1){
-        var actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")await actx.resume();
-        var dest=actx.createMediaStreamDestination();
-        var matchSec=t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);var targetSec=matchSec?Math.max(parseInt(matchSec.shift(),10),8):14;
-        var cleanV=t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|اصنع حلقة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi,"").trim()||"مواجهة بين البطل سيف والشرير كايتو فوق قمة الجبل";
-        wait.innerHTML="📝 <b>1/4:</b> تأليف الحوار وتوزيع الشخصيات والأصوات...";
-        var sp='أنت مخرج أنمي. اكتب 4 سطور حوارية بالعربية الفصحى عن: "'+cleanV+'". التزم حرفياً بهذا القالب في كل سطر بدون ترقيم أو نجوم:\nاسم_الشخصية | الصوت(onyx أو nova أو echo) | الحوار_بالعربية(6 كلمات كحد أقصى) | وصف_اللقطة_بالإنجليزية(12 كلمة تصف الشخصية وملابسها وحركتها)';
-        var rawScript=await askAI([{role:"user",content:sp}]);
-        var scenes=rawScript.split("\n").map(function(line){var p=line.split("|").map(function(x){return x.replace(/[*#]/g,"").trim();});if(p.length>=4&&p[0]&&p[2]&&p[3]){var v=p[1].toLowerCase();if(v!=="onyx"&&v!=="nova"&&v!=="echo")v="onyx";return{speaker:p[0],voice:v,line:p[2],prompt:p[3]};}return null;}).filter(Boolean).slice(0,4);
-        if(!scenes.length)scenes=[{speaker:"سيف",voice:"echo",line:"لن أسمح لك بتدمير المدينة يا كايتو!",prompt:"young black-haired anime hero in white coat holding glowing blue katana on mountain peak"},{speaker:"كايتو",voice:"onyx",line:"قوتك لن تصمد أمام ظلامي أبداً!",prompt:"armored dark anime villain with red eyes swinging black flame sword on mountain peak"},{speaker:"لينا",voice:"nova",line:"احذر يا سيف! طاقته تتضاعف الآن!",prompt:"anime heroine with silver hair casting golden energy barrier, dramatic wind"},{speaker:"سيف",voice:"echo",line:"هذه الضربة الحاسمة باسم العدالة!",prompt:"young black-haired anime hero in white coat unleashing massive blue slash attack"}];
-        if(cType==="img")scenes=[scenes[0]];
-        wait.innerHTML="🎨 <b>2/4:</b> رسم المشاهد وتثبيت ملامح الشخصيات...";
-        var fUrls=cType==="img"?[cData]:await Promise.all(scenes.map(function(sc){var fullPr=sc.prompt+(isAnime?", high budget Japanese anime key visual, Studio MAPPA and Ufotable style, consistent character design, dynamic cel shading, 8k":", cinematic 8k ultra realistic scene, dramatic lighting");return fetch(EDGE+sl+"image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fullPr,width:768,height:768})}).then(function(r){return r.ok?r.json():null;}).then(function(d){return(d&&d.image_url)?d.image_url:null;}).catch(function(){return null;});}));
-        var validPairs=[];for(var k=0;k<fUrls.length;k++)if(fUrls[k])validPairs.push({url:fUrls[k],scene:scenes[k]});
-        if(!validPairs.length)throw new Error("تعذر توليد المشاهد حالياً");
-        var imObjs=(await Promise.all(validPairs.map(function(vp){return new Promise(function(res){var im=new Image();im.crossOrigin="anonymous";im.onload=function(){res({img:im,scene:vp.scene});};im.onerror=function(){res(null);};im.src=vp.url;});}))).filter(Boolean);
-        wait.innerHTML="🎙️ <b>3/4:</b> تسجيل أصوات الشخصيات باللغة العربية...";
-        var audioClips=await Promise.all(imObjs.map(function(item){return fetch(EDGE+sl+"tts?t="+encodeURIComponent(item.scene.line)+"&v="+item.scene.voice).then(function(r){return r.ok?r.arrayBuffer():null;}).then(function(buf){return(buf&&buf.byteLength>200)?actx.decodeAudioData(buf):null;}).catch(function(){return null;});}));
-        wait.innerHTML="🎬 <b>4/4:</b> تحريك الشخصيات ودمج الأصوات والترجمة...";
-        var cv=document.createElement("canvas");cv.width=768;cv.height=768;var gl=cv.getContext("webgl",{preserveDrawingBuffer:true});
-        var vsSrc="attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }";
-        var fsSrc="precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; uniform float u_talk; varying vec2 v_uv; void main(){ vec2 uv = v_uv; float z = (u_mode == 0) ? (1.04 + u_prog * 0.14) : (1.18 - u_prog * 0.14); uv = (uv - 0.5) / z + 0.5; float upperBody = smoothstep(0.85, 0.15, v_uv.y); float headZone = smoothstep(0.55, 0.15, v_uv.y); uv.y += sin(u_time * 3.2) * 0.008 * upperBody + sin(u_time * 18.0) * 0.007 * headZone * u_talk; uv.x += sin(u_time * 2.4 + float(u_mode)) * 0.012 * upperBody + sin(v_uv.y * 12.0 - u_time * 6.0) * 0.005 * smoothstep(0.3, 0.9, abs(v_uv.x - 0.5)); float impact = smoothstep(0.86, 1.0, sin(u_prog * 3.14159)); uv.x += sin(u_time * 38.0) * 0.004 * impact; vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997)); float angle = atan(v_uv.y - 0.5, v_uv.x - 0.5); float speedLines = smoothstep(0.75, 1.0, sin(angle * 48.0 + u_time * 15.0)) * smoothstep(0.32, 0.72, length(v_uv - 0.5)); col.rgb += vec3(0.85, 0.92, 1.0) * speedLines * 0.16 * impact; float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5)); col.rgb *= mix(0.65, 1.12, vig); gl_FragColor = col; }";
-        function mkSh(tp,sr){var sh=gl.createShader(tp);gl.shaderSource(sh,sr);gl.compileShader(sh);return sh;}
-        var prog=gl.createProgram();gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,vsSrc));gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,fsSrc));gl.linkProgram(prog);gl.useProgram(prog);
-        var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
-        var posLoc=gl.getAttribLocation(prog,"a_pos");gl.enableVertexAttribArray(posLoc);gl.vertexAttribPointer(posLoc,2,gl.FLOAT,false,0,0);
-        var texList=imObjs.map(function(item){var tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,item.img);return tx;});
-        var hud=document.createElement("canvas");hud.width=768;hud.height=768;var hctx=hud.getContext("2d");
-        var vStream=hud.captureStream(30);dest.stream.getAudioTracks().forEach(function(tr){vStream.addTrack(tr);});
-        var mimeOut=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm";
-        var rec=new MediaRecorder(vStream,{mimeType:mimeOut}),chunks=[];rec.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data);};
-        var doneRec=new Promise(function(res){rec.onstop=function(){try{actx.close();}catch(ex){}res(URL.createObjectURL(new Blob(chunks,{type:mimeOut})));};});rec.start();
-        var uTime=gl.getUniformLocation(prog,"u_time"),uProg=gl.getUniformLocation(prog,"u_prog"),uMode=gl.getUniformLocation(prog,"u_mode"),uTalk=gl.getUniformLocation(prog,"u_talk");
-        var pts=Array.from({length:40},function(){return{x:Math.random()*768,y:Math.random()*768,r:1.5+Math.random()*2.5,vx:(Math.random()-0.5)*1.4,vy:-0.7-Math.random()*1.4,a:0.4+Math.random()*0.55};});
-        var totalFrames=Math.max(targetSec,imObjs.length*4)*30,perScene=Math.floor(totalFrames/imObjs.length),fc=0,lastSpokenIdx=-1;
-        await new Promise(function(res){var tm=setInterval(function(){var idx=Math.min(Math.floor(fc/perScene),imObjs.length-1),lp=(fc%perScene)/perScene;if(idx!==lastSpokenIdx){lastSpokenIdx=idx;window._isTalking=0.0;if(audioClips[idx]){try{var src=actx.createBufferSource();src.buffer=audioClips[idx];src.connect(dest);src.connect(actx.destination);window._isTalking=1.0;src.onended=function(){window._isTalking=0.0;};src.start(0);}catch(ex){}}}gl.viewport(0,0,768,768);gl.bindTexture(gl.TEXTURE_2D,texList[idx]);gl.uniform1f(uTime,fc*0.033);gl.uniform1f(uProg,lp);gl.uniform1i(uMode,idx%2);gl.uniform1f(uTalk,window._isTalking||0.0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);hctx.clearRect(0,0,768,768);hctx.drawImage(cv,0,0);pts.forEach(function(pt){pt.x+=pt.vx;pt.y+=pt.vy;if(pt.y<0)pt.y=768;if(pt.x<0)pt.x=768;if(pt.x>768)pt.x=0;hctx.beginPath();hctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2);hctx.fillStyle="rgba(255,220,150,"+pt.a+")";hctx.fill();});var curSc=imObjs[idx].scene,grad=hctx.createLinearGradient(0,510,0,768);grad.addColorStop(0,"rgba(0,0,0,0)");grad.addColorStop(1,"rgba(0,0,0,0.94)");hctx.fillStyle=grad;hctx.fillRect(0,510,768,258);hctx.fillStyle=curSc.voice==="nova"?"#f472b6":(curSc.voice==="echo"?"#38bdf8":"#fbbf24");hctx.fillRect(264,585,240,38);hctx.font="bold 21px sans-serif";hctx.textAlign="center";hctx.fillStyle="#090a0f";hctx.fillText("🎙️ "+curSc.speaker,384,611);hctx.font="bold 31px sans-serif";hctx.fillStyle="#ffffff";hctx.shadowColor="rgba(0,0,0,0.95)";hctx.shadowBlur=10;hctx.fillText(curSc.line,384,675);hctx.shadowBlur=0;if(++fc>=totalFrames){clearInterval(tm);rec.stop();res();}},33);});
-        var fbVid=await doneRec,castSummary=imObjs.map(function(x){return"• <b>"+x.scene.speaker+":</b> "+x.scene.line;}).join("<br>");
-        wait.remove();addMsg("AI","🎬 <b>تم إخراج الحلقة (أصوات متعددة + أسماء الشخصيات + ترجمة):</b><br><br>"+castSummary,{vid:fbVid});
-      }else if((low.indexOf("صورة")!==-1||low.indexOf("صور")!==-1||low.indexOf("ارسم")!==-1||low.indexOf("صمم")!==-1||low.indexOf("image")!==-1)&&cType!=="img"){
-        var cleanT=t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi,"").trim();
-        var en=cleanT.length>2?await askAI([{role:"user",content:"Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English): "+cleanT}]):"majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography";
-        en=en.replace(/[^a-zA-Z0-9 ,.-]/g,"").trim().slice(0,140)||"cinematic ultra realistic 8k landscape photography";
-        if(isAnime)en+=", masterpiece Japanese anime key visual, Studio Ghibli and Ufotable style, vibrant cel shading, 8k";
-        var ir=await fetch(EDGE+sl+"image",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:en,width:768,height:768})});
-        var iData=await ir.json().catch(function(){return{};});if(!ir.ok||!iData.image_url)throw new Error("فشل توليد الصورة");
-        wait.remove();addMsg("AI","🎨 <b>تم تصميم الصورة بدقة عالية:</b>",{img:iData.image_url});
-      }else{
-        var fullT=cType==="doc"?(t+"\n\n[محتوى الملف "+cName+"]:\n"+String(cData).slice(0,4000)):(t||"مرحباً");
-        hist.push({role:"user",content:fullT});var rep=await askAI(hist,cType==="img"?cData:null);hist.push({role:"assistant",content:rep});saveH();wait.remove();addMsg("AI",rep);
-      }
-    }catch(err){wait.innerHTML="⚠️ "+(err.message||err);}
-  }
-  document.getElementById("btnSend").onclick=doSend;q.onkeydown=function(e){if(e.key==="Enter")doSend();};
+  var chat = document.getElementById("chat"), q = document.getElementById("q"), menu = document.getElementById("plusMenu"), fileInp = document.getElementById("fileInp"), prevBar = document.getElementById("preview-bar"), prevName = document.getElementById("prev-name");
+  window.DH_UI.clearAttachment = function(){ window.DH_UI.attData = null; window.DH_UI.attType = null; window.DH_UI.attName = ""; prevBar.style.display = "none"; fileInp.value = ""; };
+  window.DH_UI.addMsg = function(role, text, media){
+    var d = document.createElement("div"); d.className = "msg " + role; d.innerHTML = String(text).replace(/\n/g, "<br>");
+    if(media && media.user_img){ var uim = document.createElement("img"); uim.src = media.user_img; uim.style.maxHeight = "220px"; d.appendChild(uim); }
+    if(media && media.img){ var im = document.createElement("img"); im.src = media.img; d.appendChild(im); var ac = document.createElement("div"); ac.className = "actions"; var dl = document.createElement("a"); dl.className = "act"; dl.href = media.img; dl.download = "DarkHorizon_8K.jpg"; dl.target = "_blank"; dl.textContent = "⬇️ تحميل الصورة"; ac.appendChild(dl); d.appendChild(ac); }
+    if(media && media.vid){ var vd = document.createElement("video"); vd.src = media.vid; vd.controls = true; vd.autoplay = true; vd.loop = true; vd.playsInline = true; d.appendChild(vd); var acv = document.createElement("div"); acv.className = "actions"; var dlv = document.createElement("a"); dlv.className = "act"; dlv.href = media.vid; dlv.download = "DarkHorizon_Anime.mp4"; dlv.target = "_blank"; dlv.textContent = "⬇️ تحميل الفيديو"; acv.appendChild(dlv); d.appendChild(acv); }
+    if(role === "AI" && (!media || (!media.img && !media.vid))){ var ac2 = document.createElement("div"); ac2.className = "actions"; var cp = document.createElement("button"); cp.type = "button"; cp.className = "act"; cp.textContent = "📋 نسخ"; cp.addEventListener("click", function(){ navigator.clipboard.writeText(text); cp.textContent = "✅ تم النسخ"; setTimeout(function(){ cp.textContent = "📋 نسخ"; }, 1500); }); ac2.appendChild(cp); d.appendChild(ac2); }
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
+  };
+  document.getElementById("btnNew").addEventListener("click", function(){ try{ localStorage.removeItem("dh_hist"); }catch(e){} chat.innerHTML = ""; if(window.DH_ENGINE && window.DH_ENGINE.reset) window.DH_ENGINE.reset(); });
+  document.getElementById("btnPlus").addEventListener("click", function(e){ e.stopPropagation(); menu.classList.toggle("show"); });
+  document.addEventListener("click", function(e){ if(!menu.contains(e.target) && e.target.id !== "btnPlus") menu.classList.remove("show"); });
+  document.getElementById("btnClear").addEventListener("click", window.DH_UI.clearAttachment);
+  menu.querySelectorAll(".pm-item").forEach(function(btn){ btn.addEventListener("click", function(){ var act = btn.getAttribute("data-act"); menu.classList.remove("show"); if(act === "img"){ fileInp.accept = "image/*"; window.DH_UI.attType = "img"; fileInp.click(); } else if(act === "doc"){ fileInp.accept = ".txt,.py,.json,.csv,.md,.html,.js"; window.DH_UI.attType = "doc"; fileInp.click(); } else if(act === "gen-img"){ q.value = "صمم لي صورة سينمائية بدقة 8K لـ "; q.focus(); } else if(act === "gen-vid"){ q.value = "اصنع حلقة أنمي حوارية عن "; q.focus(); } }); });
+  fileInp.addEventListener("change", function(){ var f = fileInp.files && fileInp.files.item(0); if(!f) return; window.DH_UI.attName = f.name; var r = new FileReader(); r.onload = function(ev){ window.DH_UI.attData = ev.target.result; prevName.textContent = "📎 " + window.DH_UI.attName; prevBar.style.display = "flex"; }; if(window.DH_UI.attType === "doc") r.readAsText(f); else r.readAsDataURL(f); });
+  function triggerSend(){ var txt = q.value.trim(); if(!txt && !window.DH_UI.attData) return; if(window.DH_ENGINE && window.DH_ENGINE.send){ window.DH_ENGINE.send(txt); } else { window.DH_UI.addMsg("AI", "⏳ جاري تحميل المحرك..."); } }
+  document.getElementById("btnSend").addEventListener("click", triggerSend);
+  q.addEventListener("keydown", function(e){ if(e.key === "Enter") triggerSend(); });
 })();
-</script></body></html>
+</script>
+<script src="./engine.js?v=1"></script>
+</body></html>
