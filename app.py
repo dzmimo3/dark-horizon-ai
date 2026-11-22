@@ -41,16 +41,30 @@ def search_web(q):
     return "\n".join(res)
 
 def ai_brain(messages, img_b64=None):
+    sl = chr(47)
     sys_msg = (
         "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير تتحدث بأسلوب إنساني طبيعي، ذكي، وواضح تماماً مثل ChatGPT. "
-        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة، وتجيب مباشرة بدون تكرار عبارات الترحيب."
+        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة، وتجيب مباشرة بدون تكرار."
     )
     clean = tuple({"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content", ""))} for m in messages if m.get("content"))
     if not clean: clean = ({"role": "user", "content": "مرحباً"},)
-    last_6 = clean[-6:]
+    last_6 = list(clean[-6:])
     errs = []
 
-    # 1. Google Gemini 2.5 Flash (تحليل الصور والنصوص)
+    # 1. Groq Llama 3.3 70B (رابط مقسّم لحمايته من اختصار المتصفح)
+    gq = get_key("GROQ_API_KEY")
+    if gq:
+        try:
+            u_gq = f"https:{sl}{sl}://groq.com{sl}openai{sl}v1{sl}chat{sl}completions"
+            r = requests.post(u_gq, headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
+                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + last_6}, timeout=12)
+            if r.status_code == 200:
+                txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
+                if txt: return txt
+            else: errs.append(f"Groq:{r.status_code}")
+        except Exception as e: errs.append(f"Groq:{type(e).__name__}")
+
+    # 2. Google Gemini 2.5 Flash
     gk = get_key("GEMINI_API_KEY")
     if gk:
         try:
@@ -61,55 +75,42 @@ def ai_brain(messages, img_b64=None):
                     raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
                     parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
                 g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
-            r = requests.post(f"https://googleapis.com{gk}",
-                              json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=14)
+            u_gm = f"https:{sl}{sl}://googleapis.com{sl}v1beta{sl}models{sl}gemini-2.5-flash:generateContent?key={gk}"
+            r = requests.post(u_gm, json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=15)
             if r.status_code == 200:
                 c0 = first(r.json().get("candidates", ()), {})
                 txt = first(c0.get("content", {}).get("parts", ()), {}).get("text", "").strip()
                 if txt: return txt
             else: errs.append(f"Gemini:{r.status_code}")
-        except Exception: errs.append("Gemini:Err")
-
-    # 2. Groq Llama 3.3 70B
-    gq = get_key("GROQ_API_KEY")
-    if gq:
-        try:
-            r = requests.post("https://groq.com",
-                              headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
-                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=10)
-            if r.status_code == 200:
-                txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
-                if txt: return txt
-            else: errs.append(f"Groq:{r.status_code}")
-        except Exception: errs.append("Groq:Err")
+        except Exception as e: errs.append(f"Gemini:{type(e).__name__}")
 
     # 3. OpenRouter Free
     ork = get_key("OPENROUTER_API_KEY")
     if ork:
         try:
-            r = requests.post("https://openrouter.ai",
-                              headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
-                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=12)
+            u_or = f"https:{sl}{sl}openrouter.ai{sl}api{sl}v1{sl}chat{sl}completions"
+            r = requests.post(u_or, headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
+                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + last_6}, timeout=14)
             if r.status_code == 200:
                 txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
                 if txt: return txt
             else: errs.append(f"OR:{r.status_code}")
-        except Exception: errs.append("OR:Err")
+        except Exception as e: errs.append(f"OR:{type(e).__name__}")
 
     # 4. Pollinations AI
     pk = get_key("POLLINATIONS_API_KEY")
     if pk:
         try:
-            r = requests.post("https://pollinations.ai",
-                              headers={"Authorization": f"Bearer {pk}", "Content-Type": "application/json"},
-                              json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + list(last_6)}, timeout=12)
+            u_pl = f"https:{sl}{sl}gen.pollinations.ai{sl}v1{sl}chat{sl}completions"
+            r = requests.post(u_pl, headers={"Authorization": f"Bearer {pk}", "Content-Type": "application/json"},
+                              json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + last_6}, timeout=14)
             if r.status_code == 200:
                 txt = first(r.json().get("choices", ()), {}).get("message", {}).get("content", "").strip()
                 if txt: return txt
             else: errs.append(f"Poll:{r.status_code}")
-        except Exception: errs.append("Poll:Err")
+        except Exception as e: errs.append(f"Poll:{type(e).__name__}")
 
-    return f"⚠️ تعذر الاتصال بالخوادم ({' | '.join(errs) or 'يرجى التحقق من المفاتيح في Render'})."
+    return f"⚠️ حالة الخوادم: {' | '.join(errs)}"
 
 def create_image(prompt):
     clean_q = prompt.strip()
@@ -125,7 +126,7 @@ def create_image(prompt):
     cf_id, cf_tok = get_key("CF_ACCOUNT_ID"), get_key("CF_API_TOKEN")
     if cf_id and cf_tok:
         try:
-            r = requests.post(f"https://cloudflare.com{cf_id}/ai/run/@cf/black-forest-labs/flux-1-schnell",
+            r = requests.post(f"https:" + chr(47)*2 + "://cloudflare.com" + chr(47) + "client" + chr(47) + "v4" + chr(47) + "accounts" + chr(47) + "{cf_id}/ai/run/@cf/black-forest-labs/flux-1-schnell",
                               headers={"Authorization": f"Bearer {cf_tok}"}, json={"prompt": en_p[:240], "num_steps": 6}, timeout=25)
             if r.status_code == 200 and r.json().get("result", {}).get("image"):
                 b64 = r.json()["result"]["image"]
@@ -136,7 +137,7 @@ def create_image(prompt):
     pk = get_key("POLLINATIONS_API_KEY")
     if pk:
         try:
-            r = requests.get(f"https://pollinations.ai{urllib.parse.quote(en_p[:220])}?width=1024&height=1024&model=flux&nologo=true&seed={random.randint(1,999999)}",
+            r = requests.get(f"https:" + chr(47)*2 + "gen.pollinations.ai" + chr(47) + "image" + chr(47) + "{urllib.parse.quote(en_p[:220])}?width=1024&height=1024&model=flux&nologo=true&seed={random.randint(1,999999)}",
                              headers={"Authorization": f"Bearer {pk}"}, timeout=28)
             if r.status_code == 200 and len(r.content) > 3000:
                 open(fpath, "wb").write(r.content)
