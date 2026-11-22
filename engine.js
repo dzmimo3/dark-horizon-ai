@@ -43,16 +43,10 @@
   }
   function loadThreeJS(){
     return new Promise(function(res){
-      if(window.THREE && window.THREE.GLTFLoader) return res(window.THREE);
+      if(window.THREE) return res(window.THREE);
       var sc = document.createElement("script");
       sc.src = "https://cloudflare.com";
-      sc.onload = function(){
-        var ld = document.createElement("script");
-        ld.src = "https://jsdelivr.net";
-        ld.onload = function(){ res(window.THREE); };
-        ld.onerror = function(){ res(window.THREE); };
-        document.head.appendChild(ld);
-      };
+      sc.onload = function(){ res(window.THREE); };
       sc.onerror = function(){ res(null); };
       document.head.appendChild(sc);
     });
@@ -60,55 +54,91 @@
 
   function create3DStage(THREE, w, h){
     var scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060b16);
-    scene.fog = new THREE.FogExp2(0x060b16, 0.038);
-    var cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-    cam.position.set(0, 2.8, 8.2);
+    scene.background = new THREE.Color(0x091326);
+    scene.fog = new THREE.FogExp2(0x091326, 0.032);
+    var cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 120);
+    cam.position.set(0, 3.0, 8.5);
     var ren = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
     ren.setSize(w, h);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    var dirL = new THREE.DirectionalLight(0x93c5fd, 1.5); dirL.position.set(5, 10, 7); scene.add(dirL);
-    var rimL = new THREE.PointLight(0xf43f5e, 1.8, 25); rimL.position.set(-4, 5, -3); scene.add(rimL);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    var sun = new THREE.DirectionalLight(0x93c5fd, 1.6);
+    sun.position.set(6, 12, 8); scene.add(sun);
+    var rim = new THREE.PointLight(0xf43f5e, 2.0, 25);
+    rim.position.set(-4, 5, -3); scene.add(rim);
 
-    var ground = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({color: 0x0b1220, roughness: 0.6}));
+    // قمر عملاق متوهج + جبال ثلاثية الأبعاد + أرضية مضيئة
+    var moon = new THREE.Mesh(
+      new THREE.SphereGeometry(2.4, 24, 24),
+      new THREE.MeshBasicMaterial({color: 0xfef08a})
+    );
+    moon.position.set(0, 6.5, -18); scene.add(moon);
+
+    var ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 60),
+      new THREE.MeshToonMaterial({color: 0x0f172a})
+    );
     ground.rotation.x = -Math.PI / 2; scene.add(ground);
-    scene.add(new THREE.GridHelper(50, 50, 0x38bdf8, 0x1e293b));
+    scene.add(new THREE.GridHelper(60, 40, 0x38bdf8, 0x1e293b));
 
-    // جزيئات طاقة ثلاثية الأبعاد (3D Game Particle System)
-    var pGeo = new THREE.BufferGeometry(), pArr = new Float32Array(300 * 3);
-    for(var i = 0; i < 900; i++) pArr[i] = (Math.random() - 0.5) * 18;
-    pGeo.setAttribute("position", new THREE.BufferAttribute(pArr, 3));
-    var pSys = new THREE.Points(pGeo, new THREE.PointsMaterial({color: 0x38bdf8, size: 0.12}));
-    scene.add(pSys);
+    function buildAnimeFighter(THREE, armorHex, hairHex, swordHex, xPos, rotY){
+      var root = new THREE.Group();
+      root.position.set(xPos, 0, 0);
+      root.rotation.y = rotY;
 
-    // تحميل مجسمات الألعاب ثلاثية الأبعاد بهيكل عظمي وحركات حقيقية (GLB Skeletal Rig)
-    var glbUrl = "https://threejs.org";
-    var mixers = [], models = [null, null], actionsList = [{}, {}];
+      var mSkin = new THREE.MeshToonMaterial({color: 0xffedd5});
+      var mArmor = new THREE.MeshToonMaterial({color: armorHex});
+      var mHair = new THREE.MeshToonMaterial({color: hairHex});
+      var mPants = new THREE.MeshToonMaterial({color: 0x1e293b});
 
-    if(THREE.GLTFLoader){
-      var loader = new THREE.GLTFLoader();
-      [0, 1].forEach(function(idx){
-        loader.load(glbUrl, function(gltf){
-          var m = gltf.scene;
-          m.scale.set(0.65, 0.65, 0.65);
-          m.position.set(idx === 0 ? -1.8 : 1.8, 0, 0);
-          m.rotation.y = idx === 0 ? Math.PI / 2 : -Math.PI / 2;
-          m.traverse(function(c){
-            if(c.isMesh && c.material){
-              c.material = new THREE.MeshToonMaterial({color: idx === 0 ? 0x38bdf8 : 0xf43f5e});
-            }
-          });
-          scene.add(m);
-          models[idx] = m;
-          var mx = new THREE.AnimationMixer(m);
-          mixers.push(mx);
-          gltf.animations.forEach(function(clip){ actionsList[idx][clip.name] = mx.clipAction(clip); });
-          if(actionsList[idx]["Running"]) actionsList[idx]["Running"].play();
-        });
-      });
+      // الجذع والدرع
+      var torso = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.32, 1.25, 12), mArmor);
+      torso.position.y = 1.65; root.add(torso);
+
+      // الرأس + الشعر الشائك + العيون المضيئة
+      var headGrp = new THREE.Group();
+      headGrp.position.y = 2.65;
+      var head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), mSkin);
+      headGrp.add(head);
+      var hair = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.65, 7), mHair);
+      hair.position.set(0, 0.25, -0.05); hair.rotation.x = -0.25;
+      headGrp.add(hair);
+      var eyeMat = new THREE.MeshBasicMaterial({color: swordHex});
+      var eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.08), eyeMat);
+      eyeL.position.set(-0.13, 0.02, 0.34); headGrp.add(eyeL);
+      var eyeR = eyeL.clone(); eyeR.position.x = 0.13; headGrp.add(eyeR);
+      root.add(headGrp);
+
+      // الأرجل المفصلية
+      var legL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 1.05, 10), mPants);
+      legL.position.set(-0.2, 0.52, 0); root.add(legL);
+      var legR = legL.clone(); legR.position.x = 0.2; root.add(legR);
+
+      // الذراع اليسرى + الذراع اليمنى مع السيف المتوهج
+      var armL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.95, 10), mArmor);
+      armL.position.set(-0.52, 1.75, 0); root.add(armL);
+
+      var armR = new THREE.Group();
+      armR.position.set(0.52, 2.05, 0);
+      var armMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.9, 10), mArmor);
+      armMesh.position.y = -0.35; armR.add(armMesh);
+      var sword = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 2.3, 0.18),
+        new THREE.MeshBasicMaterial({color: swordHex})
+      );
+      sword.position.set(0, -0.8, 0.95); sword.rotation.x = Math.PI / 2;
+      armR.add(sword);
+      root.add(armR);
+
+      scene.add(root);
+      return {root: root, head: headGrp, legL: legL, legR: legR, armL: armL, armR: armR, baseX: xPos};
     }
-    return {scene: scene, cam: cam, ren: ren, mixers: mixers, models: models, actionsList: actionsList, pSys: pSys};
+
+    var fighters = [
+      buildAnimeFighter(THREE, 0x0284c7, 0x0f172a, 0x38bdf8, -2.0, Math.PI / 2),
+      buildAnimeFighter(THREE, 0xdc2626, 0xf8fafc, 0xf43f5e, 2.0, -Math.PI / 2)
+    ];
+    return {scene: scene, cam: cam, ren: ren, fighters: fighters};
   }
 
   function renderSmartReply(text){
@@ -232,29 +262,29 @@
                 }
               }
 
-              if(stage){
-                stage.mixers.forEach(function(mx){ mx.update(0.033); });
-                stage.pSys.rotation.y += 0.008;
-                [0, 1].forEach(function(ci){
-                  var m = stage.models[ci], acts = stage.actionsList[ci];
-                  if(m && acts){
-                    var targetAnim = curSc.motion === "run" ? "Running" : (curSc.motion === "walk" ? "Walking" : "Punch");
-                    if(!acts[targetAnim]) targetAnim = "Idle";
-                    if(m._curAnim !== targetAnim && acts[targetAnim]){
-                      if(m._curAnim && acts[m._curAnim]) acts[m._curAnim].fadeOut(0.2);
-                      acts[targetAnim].reset().fadeIn(0.2).play();
-                      m._curAnim = targetAnim;
-                    }
-                    if(curSc.motion === "run" || curSc.motion === "walk"){
-                      m.position.x = (ci === 0 ? -1.8 : 1.8) + Math.sin(tSec * 2.0) * (ci === 0 ? 1.1 : -1.1);
-                    } else {
-                      m.position.x = (ci === 0 ? -1.1 : 1.1);
-                    }
+              if(stage && stage.fighters){
+                var spd = curSc.motion === "run" ? 11.5 : (curSc.motion === "walk" ? 5.5 : 8.5);
+                var amp = curSc.motion === "run" ? 0.8 : (curSc.motion === "walk" ? 0.38 : 0.55);
+                for(var ci = 0; ci < 2; ci++){
+                  var ch = stage.fighters[ci];
+                  var ph = tSec * spd + ci * 2.1;
+                  ch.legL.rotation.x = Math.sin(ph) * amp;
+                  ch.legR.rotation.x = -Math.sin(ph) * amp;
+                  ch.armL.rotation.x = -Math.sin(ph) * amp * 0.7;
+                  ch.armR.rotation.x = (curSc.motion === "fight") ? (Math.sin(tSec * 9.5 + ci) * 1.15 - 0.45) : (Math.sin(ph) * 0.4);
+                  ch.root.position.y = Math.abs(Math.sin(ph)) * (curSc.motion === "run" ? 0.28 : 0.08);
+                  if(curSc.motion === "run" || curSc.motion === "walk"){
+                    ch.root.position.x = ch.baseX + Math.sin(tSec * 2.2) * (ci === 0 ? 0.9 : -0.9);
+                  } else {
+                    ch.root.position.x = (ci === 0 ? -1.15 : 1.15) + Math.sin(tSec * 6.0) * 0.25;
                   }
-                });
-                stage.cam.position.x = Math.sin(tSec * 0.65) * 2.4;
-                stage.cam.position.z = 7.4 - Math.sin(lp * Math.PI) * 1.5;
-                stage.cam.lookAt(0, 1.5, 0);
+                  if((idx % 2 === ci) && window._isTalking){
+                    ch.head.rotation.x = Math.sin(tSec * 22.0) * 0.14;
+                  }
+                }
+                stage.cam.position.x = Math.sin(tSec * 0.7) * 2.3;
+                stage.cam.position.z = 7.5 - Math.sin(lp * Math.PI) * 1.4;
+                stage.cam.lookAt(0, 1.6, 0);
                 stage.ren.render(stage.scene, stage.cam);
                 hctx.drawImage(stage.ren.domElement, 0, 0);
               }
