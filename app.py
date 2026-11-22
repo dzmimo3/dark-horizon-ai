@@ -39,74 +39,111 @@ def search_web(q):
 
 def ai_brain(messages, img_b64=None):
     sys_msg = (
-        "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير وفائق السرعة تتحدث بأسلوب إنساني ذكي ومباشر مثل ChatGPT. "
-        "تفهم العربية الفصحى واللهجة الجزائرية والفرنسية والإنجليزية بطلاقة."
+        "أنت مساعد ذكاء اصطناعي خبير تتحدث بأسلوب طبيعي، ذكي، ومباشر تماماً مثل ChatGPT و Gemini. "
+        "أجب بوضوح وعمق وتفاعل مع كلام المستخدم وسياق المحادثة بدون أي عبارات ترحيبية مكررة."
     )
     clean = [{"role": ("assistant" if m.get("role") == "AI" else "user"), "content": str(m.get("content", ""))} for m in messages if m.get("content")]
     if not clean: clean = [{"role": "user", "content": "مرحباً"}]
+    errors = []
 
-    def call_groq():
-        gq = get_key("GROQ_API_KEY")
-        if not gq: return ""
-        r = requests.post("https://groq.com",
-                          headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
-                          json={"model": "llama-3.1-8b-instant", "messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=5)
-        if r.status_code == 200:
-            return first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
-        return ""
+    # 1. Google Gemini 2.5 Flash
+    gk = get_key("GEMINI_API_KEY")
+    if gk:
+        try:
+            g_contents = []
+            for idx, m in enumerate(clean[-6:]):
+                parts = [{"text": m["content"]}]
+                if img_b64 and idx == len(clean[-6:]) - 1 and m["role"] == "user":
+                    raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
+                    parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
+                g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
+            r = requests.post(f"https://googleapis.com{gk}",
+                              json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=12)
+            if r.status_code == 200:
+                c0 = first(r.json().get("candidates", []), {})
+                txt = first(c0.get("content", {}).get("parts", []), {}).get("text", "").strip()
+                if txt: return txt
+            else:
+                errors.append(f"Gemini:{r.status_code}")
+        except Exception as e:
+            errors.append("Gemini:Err")
 
-    def call_gemini():
-        gk = get_key("GEMINI_API_KEY")
-        if not gk: return ""
-        g_contents = []
-        for idx, m in enumerate(clean[-4:]):
-            parts = [{"text": m["content"]}]
-            if img_b64 and idx == len(clean[-4:]) - 1 and m["role"] == "user":
-                raw_b64 = img_b64.split(",", 1).pop() if "," in img_b64 else img_b64
-                parts.append({"inlineData": {"mimeType": "image/jpeg", "data": raw_b64}})
-            g_contents.append({"role": ("model" if m["role"] == "assistant" else "user"), "parts": parts})
-        r = requests.post(f"https://googleapis.com{gk}",
-                          json={"systemInstruction": {"parts": [{"text": sys_msg}]}, "contents": g_contents}, timeout=8)
-        if r.status_code == 200:
-            c0 = first(r.json().get("candidates", []), {})
-            return first(c0.get("content", {}).get("parts", []), {}).get("text", "").strip()
-        return ""
+    # 2. Groq Llama 3.3 70B
+    gq = get_key("GROQ_API_KEY")
+    if gq:
+        try:
+            r = requests.post("https://groq.com",
+                              headers={"Authorization": f"Bearer {gq}", "Content-Type": "application/json"},
+                              json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=10)
+            if r.status_code == 200:
+                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                if txt: return txt
+            else:
+                errors.append(f"Groq:{r.status_code}")
+        except Exception:
+            errors.append("Groq:Err")
 
-    def call_poll():
-        pk = get_key("POLLINATIONS_API_KEY")
-        url = "https://pollinations.ai" if pk else "https://pollinations.ai"
-        hdrs = {"Authorization": f"Bearer {pk}", "Content-Type": "application/json"} if pk else {"Content-Type": "application/json"}
-        r = requests.post(url, headers=hdrs, json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=7)
-        if r.status_code == 200:
-            if pk: return first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
-            return r.text.strip()
-        return ""
+    # 3. OpenRouter Free
+    ork = get_key("OPENROUTER_API_KEY")
+    if ork:
+        try:
+            r = requests.post("https://openrouter.ai",
+                              headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
+                              json={"model": "openrouter/free", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=12)
+            if r.status_code == 200:
+                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                if txt: return txt
+            else:
+                errors.append(f"OpenRouter:{r.status_code}")
+        except Exception:
+            errors.append("OpenRouter:Err")
 
-    # إذا وُجدت صورة مرفقة نرسلها لـ Gemini Vision مباشرة، وإلا نطلق السباق المتوازي بين المحركات الثلاثة
-    if img_b64:
-        res = call_gemini()
-        if res: return res
+    # 4. Pollinations AI
+    pk = get_key("POLLINATIONS_API_KEY")
+    if pk:
+        try:
+            r = requests.post("https://pollinations.ai",
+                              headers={"Authorization": f"Bearer {pk}", "Content-Type": "application/json"},
+                              json={"model": "openai", "messages": [{"role": "system", "content": sys_msg}] + clean[-6:]}, timeout=12)
+            if r.status_code == 200:
+                txt = first(r.json().get("choices", []), {}).get("message", {}).get("content", "").strip()
+                if txt: return txt
+            else:
+                errors.append(f"Poll:{r.status_code}")
+        except Exception:
+            errors.append("Poll:Err")
 
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        futs = [ex.submit(call_groq), ex.submit(call_gemini), ex.submit(call_poll)]
-        for f in as_completed(futs, timeout=9):
-            try:
-                ans = f.result()
-                if ans and len(ans) > 1:
-                    return ans
-            except Exception:
-                continue
+    # 5. Cloudflare Workers AI
+    cf_id, cf_tok = get_key("CF_ACCOUNT_ID"), get_key("CF_API_TOKEN")
+    if cf_id and cf_tok:
+        try:
+            r = requests.post(f"https://cloudflare.com{cf_id}/ai/run/@cf/meta/llama-3.1-8b-instruct",
+                              headers={"Authorization": f"Bearer {cf_tok}"},
+                              json={"messages": [{"role": "system", "content": sys_msg}] + clean[-4:]}, timeout=12)
+            if r.status_code == 200:
+                txt = r.json().get("result", {}).get("response", "").strip()
+                if txt: return txt
+            else:
+                errors.append(f"CF:{r.status_code}")
+        except Exception:
+            errors.append("CF:Err")
 
-    return "أهلاً بك! كيف يمكنني مساعدتك؟"
+    err_info = " | ".join(errors) if errors else "لا توجد مفاتيح مفعّلة في Render"
+    return f"⚠️ تعذر الاتصال بالخوادم حالياً ({err_info})."
 
 def create_image(prompt):
-    en_p = ai_brain([{"role": "user", "content": f"Translate into a modest, ultra-realistic 8K RAW DSLR English photo prompt (ONLY English words, no intro): {prompt}"}])
-    if len(en_p) < 5 or "أهلاً بك" in en_p:
-        en_p = "majestic cinematic 8k ultra realistic photography, natural lighting, sharp focus"
+    clean_q = prompt.strip()
+    if len(clean_q) < 10 or clean_q in ("صور", "صورة", "ارسم"):
+        en_p = "majestic Arabian horse galloping across golden desert dunes at sunset, ultra realistic 8k DSLR photography, natural lighting"
+    else:
+        en_p = ai_brain([{"role": "user", "content": f"Translate into a modest, ultra-realistic 8K English photography prompt (ONLY English words, no intro): {clean_q}"}])
+        if not en_p or en_p.startswith("⚠️"):
+            en_p = "cinematic ultra realistic 8k landscape photography, golden hour lighting, sharp focus"
+
     fn = f"dh_img_{int(time.time())}.jpg"
     fpath = os.path.join(MEDIA_DIR, fn)
 
-    # 1. Cloudflare FLUX.1 (10,000 طلب مجاني يومياً)
+    # 1. Cloudflare FLUX.1 (10,000 طلب/يوم)
     cf_id, cf_tok = get_key("CF_ACCOUNT_ID"), get_key("CF_API_TOKEN")
     if cf_id and cf_tok:
         try:
@@ -118,17 +155,30 @@ def create_image(prompt):
                 return f"data:image/jpeg;base64,{b64}"
         except Exception: pass
 
-    # 2. Pollinations FLUX / Turbo
+    # 2. Pollinations Official Gateway
     pk = get_key("POLLINATIONS_API_KEY")
-    for mdl in ("flux", "turbo"):
+    if pk:
         try:
-            base_u = "https://pollinations.ai" if pk else "https://pollinations.ai"
-            hdrs = {"Authorization": f"Bearer {pk}"} if pk else {"User-Agent": "Mozilla/5.0"}
-            r = requests.get(f"{base_u}{urllib.parse.quote(en_p[:220])}?width=1024&height=1024&model={mdl}&nologo=true&seed={random.randint(1,999999)}", headers=hdrs, timeout=28)
+            r = requests.get(f"https://pollinations.ai{urllib.parse.quote(en_p[:220])}?width=1024&height=1024&model=flux&nologo=true&seed={random.randint(1,999999)}",
+                             headers={"Authorization": f"Bearer {pk}"}, timeout=28)
             if r.status_code == 200 and len(r.content) > 3000:
                 open(fpath, "wb").write(r.content)
                 return "data:image/jpeg;base64," + base64.b64encode(r.content).decode("utf-8")
         except Exception: pass
+
+    # 3. Google Imagen 3
+    gk = get_key("GEMINI_API_KEY")
+    if gk:
+        try:
+            r = requests.post(f"https://googleapis.com{gk}",
+                              json={"instances": [{"prompt": en_p[:260]}], "parameters": {"sampleCount": 1}}, timeout=25)
+            if r.status_code == 200:
+                b64 = first(r.json().get("predictions", []), {}).get("bytesBase64Encoded")
+                if b64:
+                    open(fpath, "wb").write(base64.b64decode(b64))
+                    return f"data:image/jpeg;base64,{b64}"
+        except Exception: pass
+
     return None
 
 def create_video(prompt, attached_img_b64=None):
@@ -142,7 +192,6 @@ def create_video(prompt, attached_img_b64=None):
         create_image(prompt)
         imgs = sorted([f for f in os.listdir(MEDIA_DIR) if f.startswith("dh_img_")])
         if imgs: img_path = os.path.join(MEDIA_DIR, imgs.pop())
-
     if img_path and os.path.exists(img_path):
         cmd = ["ffmpeg", "-y", "-loop", "1", "-i", img_path, "-vf", "scale=1280:720,zoompan=z='min(zoom+0.0015,1.25)':d=125:s=1280x720", "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", fpath]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
