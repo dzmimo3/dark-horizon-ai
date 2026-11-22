@@ -141,6 +141,7 @@ window.addEventListener('beforeinstallprompt', function(e){
     throw new Error('تعذر الاتصال بالمحركات');
   }
 
+  var EDGE_URL = "https:"+sl+sl+"hidden-bread-95eb.dz30007000.workers.dev"; var POL_TOK = tok;
   async function doSend(){
     var t = q.value.trim(); if(!t && !attData) return; q.value = '';
     var cData = attData, cType = attType, cName = attName; attData = null; attType = null; attName = ''; prevBar.style.display = 'none';
