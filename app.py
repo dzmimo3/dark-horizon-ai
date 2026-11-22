@@ -13,7 +13,7 @@ def cors_json(data, status=200):
 
 @app.route("/", methods=["GET"])
 def home():
-    return cors_json({"status": "DARK HORIZON PRO API ONLINE", "engines": ["Gemini 2.0", "Groq", "OpenRouter", "Cloudflare", "Fal.ai"]})
+    return cors_json({"status": "DARK HORIZON PRO API ONLINE", "features": ["Text-to-Video", "Image-to-Video", "Gemini 2.0", "Groq", "Cloudflare"]})
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -95,24 +95,36 @@ def api_video():
     if request.method == "OPTIONS":
         return cors_json({}, 204)
     d = request.get_json(silent=True) or {}
-    prompt = str(d.get("prompt", "cinematic realistic motion scene")).strip()
+    prompt = str(d.get("prompt", "cinematic realistic smooth motion")).strip()
     aspect = str(d.get("aspect", "16:9")).strip()
+    img_url = d.get("image_url")
     fal_key = os.environ.get("FAL_KEY")
     if not fal_key:
         return cors_json({"error": "مفتاح FAL_KEY غير مضاف في إعدادات Render"}, 500)
     sl = chr(47)
-    endpoints = [
-        f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan-t2v",
-        f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan{sl}v2.1{sl}text-to-video",
-        f"https:{sl}{sl}fal.run{sl}fal-ai{sl}fast-svd"
-    ]
+
+    if img_url:
+        endpoints = [
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan-i2v",
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan{sl}v2.1{sl}image-to-video",
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}fast-svd"
+        ]
+        payload = {"prompt": prompt, "image_url": img_url, "aspect_ratio": aspect}
+    else:
+        endpoints = [
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan-t2v",
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}wan{sl}v2.1{sl}text-to-video",
+            f"https:{sl}{sl}fal.run{sl}fal-ai{sl}fast-svd"
+        ]
+        payload = {"prompt": prompt, "aspect_ratio": aspect}
+
     last_err = ""
     for ep in endpoints:
         try:
             res = http.post(
                 ep,
                 headers={"Authorization": f"Key {fal_key}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "aspect_ratio": aspect},
+                json=payload,
                 timeout=115
             )
             if res.status_code == 200:
