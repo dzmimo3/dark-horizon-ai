@@ -5,6 +5,14 @@
   var EDGE = "https:" + sl + sl + "hidden-bread-95eb.dz30007000.workers.dev";
   var q = document.getElementById("q");
 
+    function getDims(){
+    var el = document.getElementById("aspectSel");
+    var v = el ? el.value : "1:1";
+    if(v === "16:9") return {w: 960, h: 540};
+    if(v === "9:16") return {w: 540, h: 960};
+    return {w: 768, h: 768};
+  }
+
   function saveH(){
     try{ localStorage.setItem("dh_hist", JSON.stringify(hist.slice(-20))); }catch(e){}
   }
@@ -39,7 +47,9 @@
         if(low.indexOf("فيديو") !== -1 || low.indexOf("مقطع") !== -1 || low.indexOf("تحريك") !== -1 || low.indexOf("انمي") !== -1 || low.indexOf("أنمي") !== -1 || low.indexOf("حلقة") !== -1 || low.indexOf("video") !== -1){
           var actx = new (window.AudioContext || window.webkitAudioContext)();
           if(actx.state === "suspended") await actx.resume();
-          var dest = actx.createMediaStreamDestination();
+                  var dest = actx.createMediaStreamDestination();
+        var bgmGain = actx.createGain(); bgmGain.gain.value = 0.045; bgmGain.connect(dest); bgmGain.connect(actx.destination);
+        var bgmOscs = [110.0, 164.81, 220.0].map(function(fq){ var o = actx.createOscillator(); o.type = "sine"; o.frequency.value = fq; o.connect(bgmGain); o.start(); return o; });
           var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
           var targetSec = matchSec ? Math.max(parseInt(matchSec.shift(), 10), 8) : 14;
           var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|اصنع حلقة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, "").trim() || "مواجهة بين البطل سيف والشرير كايتو فوق قمة الجبل";
@@ -72,7 +82,7 @@
             return fetch(EDGE + sl + "image", {
               method: "POST",
               headers: {"Content-Type": "application/json"},
-              body: JSON.stringify({prompt: fullPr, width: 768, height: 768})
+              body: JSON.stringify({prompt: fullPr, width: getDims().w, height: getDims().h})
             }).then(function(r){ return r.ok ? r.json() : null; })
               .then(function(d){
                 if(d && d.image_url) return d.image_url;
@@ -103,7 +113,7 @@
               .catch(function(){ return null; });
           }));
           wait.innerHTML = "🎬 <b>4/4:</b> تحريك الشخصيات ودمج الأصوات والترجمة...";
-          var cv = document.createElement("canvas"); cv.width = 768; cv.height = 768;
+          var cv = document.createElement("canvas"); var dm = getDims(); cv.width = dm.w; cv.height = dm.h;
           var gl = cv.getContext("webgl", {preserveDrawingBuffer: true});
           var vsSrc = "attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }";
           var fsSrc = "precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; uniform float u_talk; varying vec2 v_uv; void main(){ vec2 uv = v_uv; float z = (u_mode == 0) ? (1.04 + u_prog * 0.14) : (1.18 - u_prog * 0.14); uv = (uv - 0.5) / z + 0.5; float upperBody = smoothstep(0.85, 0.15, v_uv.y); float headZone = smoothstep(0.55, 0.15, v_uv.y); uv.y += sin(u_time * 3.2) * 0.008 * upperBody + sin(u_time * 18.0) * 0.007 * headZone * u_talk; uv.x += sin(u_time * 2.4 + float(u_mode)) * 0.012 * upperBody; vec4 col = texture2D(u_tex, clamp(uv, 0.003, 0.997)); float vig = smoothstep(0.96, 0.32, length(v_uv - 0.5)); col.rgb *= mix(0.65, 1.12, vig); gl_FragColor = col; }";
@@ -119,12 +129,12 @@
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, item.img); return tx;
           });
 
-          var hud = document.createElement("canvas"); hud.width = 768; hud.height = 768; var hctx = hud.getContext("2d");
+          var hud = document.createElement("canvas"); hud.width = dm.w; hud.height = dm.h; var hctx = hud.getContext("2d");
           var vStream = hud.captureStream(30); dest.stream.getAudioTracks().forEach(function(tr){ vStream.addTrack(tr); });
           var mimeOut = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
           var rec = new MediaRecorder(vStream, {mimeType: mimeOut}), chunks = [];
           rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
-          var doneRec = new Promise(function(res){ rec.onstop = function(){ try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
+          var doneRec = new Promise(function(res){ rec.onstop = function(){ bgmOscs.forEach(function(o){try{o.stop();}catch(ex){}}); try{actx.close();}catch(ex){} res(URL.createObjectURL(new Blob(chunks, {type: mimeOut}))); }; });
           rec.start();
 
           var uTime = gl.getUniformLocation(prog, "u_time"), uProg = gl.getUniformLocation(prog, "u_prog"), uMode = gl.getUniformLocation(prog, "u_mode"), uTalk = gl.getUniformLocation(prog, "u_talk");
@@ -138,9 +148,9 @@
                 lastSpokenIdx = idx; window._isTalking = 0.0;
                 if(audioClips[idx]){ try{ var src = actx.createBufferSource(); src.buffer = audioClips[idx]; src.connect(dest); src.connect(actx.destination); window._isTalking = 1.0; src.onended = function(){ window._isTalking = 0.0; }; src.start(0); }catch(ex){} }
               }
-              gl.viewport(0, 0, 768, 768); gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
+              gl.viewport(0, 0, dm.w, dm.h); gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
               gl.uniform1f(uTime, fc * 0.033); gl.uniform1f(uProg, lp); gl.uniform1i(uMode, idx % 2); gl.uniform1f(uTalk, window._isTalking || 0.0);
-              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); hctx.clearRect(0, 0, 768, 768); hctx.drawImage(cv, 0, 0);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); hctx.clearRect(0, 0, dm.w, dm.h); hctx.drawImage(cv, 0, 0);
               pts.forEach(function(pt){ pt.x += pt.vx; pt.y += pt.vy; if(pt.y < 0) pt.y = 768; if(pt.x < 0) pt.x = 768; if(pt.x > 768) pt.x = 0; hctx.beginPath(); hctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2); hctx.fillStyle = "rgba(255,220,150," + pt.a + ")"; hctx.fill(); });
               var curSc = imObjs[idx].scene, grad = hctx.createLinearGradient(0, 510, 0, 768); grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.94)");
               hctx.fillStyle = grad; hctx.fillRect(0, 510, 768, 258);
@@ -158,7 +168,7 @@
           var en = cleanT.length > 2 ? await askAI([{role: "user", content: "Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English): " + cleanT}]) : "majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography";
           en = en.replace(/[^a-zA-Z0-9 ,.-]/g, "").trim().slice(0, 140) || "cinematic ultra realistic 8k landscape photography";
           if(isAnime) en += ", masterpiece Japanese anime key visual, Studio Ghibli style, vibrant cel shading, 8k";
-          var ir = await fetch(EDGE + sl + "image", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({prompt: en, width: 768, height: 768})});
+          var ir = await fetch(EDGE + sl + "image", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({prompt: en, width: getDims().w, height: getDims().h})});
           var iData = await ir.json().catch(function(){ return {}; });
           if(!ir.ok || !iData.image_url) throw new Error("فشل توليد الصورة");
           wait.remove(); window.DH_UI.addMsg("AI", "🎨 <b>تم تصميم الصورة بدقة عالية:</b>", {img: iData.image_url});
