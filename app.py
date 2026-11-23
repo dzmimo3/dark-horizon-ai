@@ -182,28 +182,28 @@ def api_image():
 
     return jsonify({"error": "img_busy", "details": errs}), 503, cors()
 
-
 @app.route("/api/video", methods=["POST", "OPTIONS"])
 def api_video():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "hypercar racing on highway at night, wheels spinning, motion blur, 4k")
+    prompt = data.get("prompt", "sleek Mercedes AMG sports car speeding on highway at sunset, spinning wheels, photorealistic 4k")
     sl = chr(47)
+    errs = []
 
-    # 1. Fal.ai LTX-Video (توليد فيديو زمني حقيقي)
+    # 1. Fal.ai LTX-Video (أسرع فيديو زمني حقيقي)
     fk = os.environ.get("FAL_KEY", "").strip()
     if fk:
         try:
             u = "https:" + sl + sl + "fal." + "run" + sl + "fal-ai" + sl + "ltx-video"
             r = requests.post(u, headers={"Authorization": f"Key {fk}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "num_frames": 65, "frame_rate": 24}, timeout=45)
+                json={"prompt": prompt, "num_frames": 65, "frame_rate": 24}, timeout=40)
             if r.status_code == 200:
                 v_url = (r.json().get("video") or {}).get("url")
                 if v_url:
-                    vb = requests.get(v_url, timeout=30).content
-                    if len(vb) > 20000:
-                        return Response(vb, mimetype="video/mp4", headers=cors())
-        except Exception: pass
+                    vb = requests.get(v_url, timeout=25).content
+                    if len(vb) > 20000: return Response(vb, mimetype="video/mp4", headers=cors())
+            errs.append(f"Fal:{r.status_code}")
+        except Exception as e: errs.append(f"FalE:{e}")
 
     # 2. Hugging Face InferenceClient (Wan 2.1 Text-to-Video)
     hf = os.environ.get("HF_TOKEN", "").strip()
@@ -212,11 +212,21 @@ def api_video():
             from huggingface_hub import InferenceClient
             client = InferenceClient(token=hf)
             vb = client.text_to_video(prompt, model="Wan-AI/Wan2.1-T2V-14B")
-            if vb and len(vb) > 20000:
-                return Response(vb, mimetype="video/mp4", headers=cors())
-        except Exception: pass
+            if vb and len(vb) > 20000: return Response(vb, mimetype="video/mp4", headers=cors())
+        except Exception as e: errs.append(f"WanE:{e}")
 
-    return jsonify({"error": "use_3d_webgl_engine"}), 503, cors()
+    # 3. استوديو LTX-Video Distilled المجاني على Hugging Face Spaces
+    try:
+        from gradio_client import Client
+        gclient = Client("Lightricks/ltx-video-distilled")
+        res = gclient.predict(prompt=prompt, api_name="/text_to_video")
+        v_path = res.get("video") if isinstance(res, dict) else (res if isinstance(res, (list, tuple)) else res)
+        if v_path and os.path.exists(str(v_path)):
+            with open(str(v_path), "rb") as vf:
+                return Response(vf.read(), mimetype="video/mp4", headers=cors())
+    except Exception as e: errs.append(f"SpaceE:{e}")
+
+    return jsonify({"error": "use_5stage_studio", "details": errs}), 503, cors()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
