@@ -75,12 +75,14 @@ def api_chat():
 
     sys_msg = "أنت DARK HORIZON AI، مساعد ذكي شامل للبحث العلمي والبرمجة. أجب بالعربية الفصحى بدقة ووضوح." + ctx
     clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
+    sl = chr(47)
     errs = []
 
+    # 1. Groq Llama-3.3-70B
     gk = os.environ.get("GROQ_API_KEY", "").strip()
     if gk:
         try:
-            u = bytes.fromhex("68747470733a2f2f6170692e67726f712e636f6d2f6f70656e61692f76312f636861742f636f6d706c6574696f6e73").decode()
+            u = "https:" + sl + sl + "api." + "groq.com" + sl + "openai" + sl + "v1" + sl + "chat" + sl + "completions"
             r = requests.post(u, headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
                 json={"model": "llama-3.3-70b-versatile", "messages": clean_msgs}, timeout=15)
             if r.status_code == 200:
@@ -90,43 +92,28 @@ def api_chat():
                     save_db(last_q, rep)
                     return jsonify({"reply": rep}), 200, cors()
             errs.append(f"Groq:{r.status_code}")
-        except Exception as e: errs.append(f"GroqErr:{e}")
+        except Exception as e: errs.append(f"GroqE:{e}")
 
-    ork = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if ork:
-        for mdl in ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free", "google/gemini-2.0-flash-exp:free"]:
-            try:
-                u = bytes.fromhex("68747470733a2f2f6f70656e726f757465722e61692f6170692f76312f636861742f636f6d706c6574696f6e73").decode()
-                r = requests.post(u, headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
-                    json={"model": mdl, "messages": clean_msgs}, timeout=15)
-                if r.status_code == 200:
-                    ch = next(iter(r.json().get("choices") or []), None)
-                    if ch:
-                        rep = ch.get("message", {}).get("content", "")
-                        save_db(last_q, rep)
-                        return jsonify({"reply": rep}), 200, cors()
-                errs.append(f"OR:{r.status_code}")
-            except Exception as e: errs.append(f"ORErr:{e}")
-
-    gem = os.environ.get("GEMINI_API_KEY", "").strip()
-    if gem:
+    # 2. Cloudflare Workers AI Llama-3.3-70B (مجاني وسريع بنفس مفتاح الصور)
+    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    if cid and ctok:
         try:
-            u = bytes.fromhex("68747470733a2f2f67656e657261746976656c616e67756167652e676f6f676c65617069732e636f6d2f7631626574612f6d6f64656c732f67656d696e692d322e302d666c6173683a67656e6572617465436f6e74656e743f6b65793d").decode()
-            r = requests.post(u + gem, json={"contents": [{"parts": [{"text": sys_msg + "\n\n" + last_q}]}]}, timeout=15)
+            u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "meta" + sl + "llama-3.3-70b-instruct-fp8-fast"
+            r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                json={"messages": clean_msgs}, timeout=16)
             if r.status_code == 200:
-                ca = next(iter(r.json().get("candidates") or []), None)
-                if ca:
-                    pt = next(iter(ca.get("content", {}).get("parts") or []), {})
-                    rep = pt.get("text", "")
+                rep = (r.json().get("result") or {}).get("response", "")
+                if rep:
                     save_db(last_q, rep)
                     return jsonify({"reply": rep}), 200, cors()
-            errs.append(f"Gem:{r.status_code}")
-        except Exception as e: errs.append(f"GemErr:{e}")
+            errs.append(f"CF:{r.status_code}")
+        except Exception as e: errs.append(f"CFE:{e}")
 
+    # 3. Hugging Face Router v1 (Qwen 2.5 72B)
     hf = os.environ.get("HF_TOKEN", "").strip()
     if hf:
         try:
-            u = bytes.fromhex("68747470733a2f2f726f757465722e68756767696e67666163652e636f2f68662d696e666572656e63652f6d6f64656c732f5177656e2f5177656e322e352d3732422d496e7374727563742f76312f636861742f636f6d706c6574696f6e73").decode()
+            u = "https:" + sl + sl + "router." + "huggingface.co" + sl + "v1" + sl + "chat" + sl + "completions"
             r = requests.post(u, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
                 json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": clean_msgs, "max_tokens": 900}, timeout=15)
             if r.status_code == 200:
@@ -136,7 +123,23 @@ def api_chat():
                     save_db(last_q, rep)
                     return jsonify({"reply": rep}), 200, cors()
             errs.append(f"HF:{r.status_code}")
-        except Exception as e: errs.append(f"HFErr:{e}")
+        except Exception as e: errs.append(f"HFE:{e}")
+
+    # 4. Google Gemini 2.0 Flash
+    gem = os.environ.get("GEMINI_API_KEY", "").strip()
+    if gem:
+        try:
+            u = "https:" + sl + sl + "generativelanguage." + "googleapis.com" + sl + "v1beta" + sl + "models" + sl + "gemini-2.0-flash:generateContent?key=" + gem
+            r = requests.post(u, json={"contents": [{"parts": [{"text": sys_msg + "\n\n" + last_q}]}]}, timeout=15)
+            if r.status_code == 200:
+                ca = next(iter(r.json().get("candidates") or []), None)
+                if ca:
+                    pt = next(iter(ca.get("content", {}).get("parts") or []), {})
+                    rep = pt.get("text", "")
+                    save_db(last_q, rep)
+                    return jsonify({"reply": rep}), 200, cors()
+            errs.append(f"Gem:{r.status_code}")
+        except Exception as e: errs.append(f"GemE:{e}")
 
     return jsonify({"reply": f"⚠️ تعذر الاتصال بالمحركات لحظياً ({', '.join(errs)})."}), 200, cors()
 
