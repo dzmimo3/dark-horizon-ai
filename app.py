@@ -146,7 +146,9 @@ def api_image():
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
     seed = data.get("seed") or random.randint(1, 9999999)
+    errs = []
 
+    # 1. Cloudflare Workers AI FLUX
     cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if cid and ctok:
         try:
@@ -157,37 +159,24 @@ def api_image():
             if r.status_code == 200:
                 b64 = r.json().get("result", {}).get("image")
                 if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-        except Exception: pass
+            errs.append(f"CF:{r.status_code}")
+        except Exception as e: errs.append(f"CF_E:{e}")
 
-    fk = os.environ.get("FAL_KEY", "").strip()
-    if fk:
-        try:
-            u = bytes.fromhex("68747470733a2f2f66616c2e72756e2f66616c2d61692f666c75782f7363686e656c6c").decode()
-            r = requests.post(u, headers={"Authorization": f"Key {fk}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "image_size": "square_hd", "seed": seed}, timeout=18)
-            if r.status_code == 200:
-                imgs = r.json().get("images") or []
-                first_im = next(iter(imgs), None)
-                if first_im and first_im.get("url"):
-                    img_b = requests.get(first_im["url"], timeout=15).content
-                    if len(img_b) > 8000: return Response(img_b, mimetype="image/jpeg", headers=cors())
-        except Exception: pass
-
+    # 2. Hugging Face Router المباشر (FLUX.1-schnell & SDXL - مجاني بدون موافقة ترخيص)
     hf = os.environ.get("HF_TOKEN", "").strip()
     if hf:
-        try:
-            from huggingface_hub import InferenceClient
-            client = InferenceClient(token=hf)
-            for mdl in ["black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell"]:
-                try:
-                    img = client.text_to_image(f"{prompt}, variation {seed}", model=mdl)
-                    buf = io.BytesIO()
-                    img.save(buf, format="JPEG", quality=92)
-                    if buf.tell() > 8000: return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
-                except Exception: pass
-        except Exception: pass
+        hf_base = bytes.fromhex("68747470733a2f2f726f757465722e68756767696e67666163652e636f2f68662d696e666572656e63652f6d6f64656c732f").decode()
+        for mdl in ["black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0", "black-forest-labs/FLUX.1-dev"]:
+            try:
+                r = requests.post(hf_base + mdl,
+                    headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
+                    json={"inputs": f"{prompt}, seed {seed}"}, timeout=25)
+                if r.status_code == 200 and len(r.content) > 8000:
+                    return Response(r.content, mimetype="image/jpeg", headers=cors())
+                errs.append(f"{mdl.split('/')[-1]}:{r.status_code}")
+            except Exception as e: errs.append(f"HF_E:{e}")
 
-    return jsonify({"error": "busy"}), 503, cors()
+    return jsonify({"error": "img_busy", "details": errs}), 503, cors()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
