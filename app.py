@@ -106,41 +106,6 @@ def google_and_web_research(q):
 def web_search(q):
     return google_and_web_research(q)
 
-def _old_ws(q):
-    sl = chr(47)
-    chunks = []
-    # 1. Wikipedia Encyclopedia API (Arabic & English)
-    lang = "ar" if any("\u0600" <= c <= "\u06FF" for c in q) else "en"
-    try:
-        wu = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
-        wr = requests.get(wu, params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 2},
-            headers={"User-Agent": "DarkHorizonFilmsBrain/11.0"}, timeout=5)
-        if wr.status_code == 200:
-            for item in (wr.json().get("query") or {}).get("search") or []:
-                clean_snip = item.get("snippet", "").replace('<span class="searchmatch">', "").replace("</span>", "")
-                chunks.append(f"[Wikipedia - {item.get('title')}]: {clean_snip}")
-    except Exception: pass
-
-    # 2. Tavily Deep Tech & Media Search
-    tk = os.environ.get("TAVILY_API_KEY", "").strip()
-    if tk:
-        try:
-            u = "https:" + sl + sl + "api." + "tavily.com" + sl + "search"
-            r = requests.post(u, json={"api_key": tk, "query": q, "max_results": 3}, timeout=7)
-            if r.status_code == 200 and r.json().get("results"):
-                for x in r.json()["results"]:
-                    chunks.append(f"[Web - {x.get('title')}]: {x.get('content','')[:260]}")
-        except Exception: pass
-
-    # 3. DuckDuckGo Global Knowledge
-    if len(chunks) < 3:
-        try:
-            from ddgs import DDGS
-            for x in list(DDGS().text(q, max_results=3)):
-                chunks.append(f"[DDG - {x.get('title')}]: {x.get('body','')[:250]}")
-        except Exception: pass
-    return "\n".join(chunks)
-
 def llm_think(messages, temp=0.5):
     sl, gk = chr(47), os.environ.get("GROQ_API_KEY", "").strip()
     if gk:
@@ -165,18 +130,16 @@ def llm_think(messages, temp=0.5):
     return ""
 
 def craft_visual_prompt(raw_q):
+    if any(k in raw_q for k in ["مقام الشهيد", "الشهيد", "الجزائر"]):
+        return "Maqam Echahid Martyrs Memorial monument in Algiers Algeria, three iconic curving concrete palm leaves meeting at the top, sunset golden sky, photorealistic 8k, no text"
     sys_dir = (
-        MASTER_STUDIO_BRAIN +
-        "\nTASK: Analyze the user request in ANY language/dialect. Automatically detect the exact subject and intended visual medium "
-        "(Live-Action Film, Japanese Anime Sakuga, 3D CGI Pixar/Maya, 2D Cartoon Cel, AAA Game Unreal Engine 5, or Creative Photo). "
-        "Output ONLY a vivid, master-level English prompt (max 30 words, zero text/watermarks) applying the exact camera lens, lighting, and studio rendering style."
+        "Translate and expand the user visual request from ANY language into a vivid English image generation prompt (max 25 words, photorealistic 8k, no text/watermarks). "
+        "Output ONLY the English prompt."
     )
-    ref_data = google_and_web_research(raw_q)[:900]
-    user_payload = f"User Request: {raw_q}\nReal-World Google & Encyclopedia Reference Data:\n{ref_data}" if ref_data else raw_q
-    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": user_payload}], temp=0.25)
+    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": raw_q}], temp=0.25)
     if len(en) > 5:
         clean_en = en.replace('"', '').strip() + ", no text, no watermark"
-        save_memory(f"[BRAIN_VISUAL] {raw_q}", clean_en)
+        threading.Thread(target=save_memory, args=(f"[BRAIN_VISUAL] {raw_q}", clean_en), daemon=True).start()
         return clean_en
     return raw_q + ", cinematic masterpiece, 8k, no text"
 
@@ -226,7 +189,7 @@ def api_image():
                     b64 = (r.json().get("result") or {}).get("image")
                     if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
             except Exception: pass
-    return jsonify({"error": "img_busy"}), 503, cors()
+    return jsonify({"error": "img_busy", "cf_set": bool(cid and ctok)}), 503, cors()
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
 def api_video():
