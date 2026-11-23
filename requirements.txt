@@ -1,10 +1,6 @@
 flask
 requests
-edge-tts
-pillow
-pymupdf
 gunicorn
-gradio_client
-
 g4f
 huggingface_hub
+pillow
