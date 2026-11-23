@@ -34,7 +34,7 @@ window.DH_VOICE_PROFILES = [
     var v = el ? el.value : "1:1";
     if(v === "16:9") return {w: 960, h: 540};
     if(v === "9:16") return {w: 540, h: 960};
-    return {w: 768, h: 768};
+    return {w: 1024, h: 1024};
   }
 
   function saveH(){
