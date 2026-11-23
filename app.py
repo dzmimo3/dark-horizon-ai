@@ -1,4 +1,4 @@
-import os, io, time, random, threading, base64, asyncio, requests
+import os, io, urllib.parse, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
@@ -94,6 +94,41 @@ def llm_think(messages, temp=0.5):
                 if rep: return rep
         except Exception: pass
     return ""
+
+def fetch_real_reference_image(query_ar):
+    sl = chr(47)
+    # تحويل الاسم العربي إلى مصطلح البحث الدقيق في Wikimedia Commons
+    en_q = llm_think([
+        {"role": "system", "content": "Extract ONLY the exact English Wikipedia/Wikimedia title for this landmark, person, object, or place (e.g. 'Maqam Echahid', 'Mercedes-AMG GT', 'Constantine bridges'). Output ONLY the exact title."},
+        {"role": "user", "content": query_ar}
+    ], temp=0.1).replace('"', '').strip() or query_ar
+
+    try:
+        api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
+        params = {
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": f"filetype:bitmap {en_q}",
+            "gsrnamespace": 6,
+            "gsrlimit": 3,
+            "prop": "imageinfo",
+            "iiprop": "url",
+            "iiurlwidth": 1024,
+            "format": "json"
+        }
+        r = requests.get(api_u, params=params, headers={"User-Agent": "DarkHorizonFilms/18.0"}, timeout=6)
+        if r.status_code == 200:
+            pages = (r.json().get("query") or {}).get("pages") or {}
+            for p in pages.values():
+                ii = next(iter(p.get("imageinfo") or []), {})
+                img_u = ii.get("thumburl") or ii.get("url")
+                if img_u and any(ext in img_u.lower() for ext in [".jpg", ".jpeg", ".png"]):
+                    ir = requests.get(img_u, headers={"User-Agent": "DarkHorizonFilms/18.0"}, timeout=8)
+                    if ir.status_code == 200 and len(ir.content) > 15000:
+                        return ir.content, en_q
+    except Exception:
+        pass
+    return None, en_q
 
 def craft_visual_prompt(raw_q):
     # قاموس هندسي مباشر للمعالم الشهيرة لضمان دقة الشكل المعماري 100%
@@ -191,7 +226,16 @@ def api_chat():
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    prompt = craft_visual_prompt(data.get("prompt", "cinematic masterpiece"))
+    raw_q = data.get("prompt", "cinematic masterpiece")
+    clean_q = raw_q.replace("صمم", "").replace("صور", "").replace("صورة", "").replace("ارسم", "").strip()
+
+    # 1. محاولة جلب الصورة الحقيقية المرجعية 100% من الأرشيف العالمي (Wikimedia Commons) لأي معلم أو مكان أو شيء حقيقي
+    ref_bytes, en_title = fetch_real_reference_image(clean_q)
+    if ref_bytes:
+        return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
+
+    # 2. إذا كان الطلب خيالياً أو إبداعياً غير موجود في الواقع، نولّده بدقة عالية عبر Cloudflare FLUX
+    prompt = craft_visual_prompt(raw_q)
     cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
