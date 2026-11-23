@@ -12,103 +12,98 @@ def cors():
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON ULTRA FAST ONLINE", "v": "2.0"})
+    return jsonify({"status": "DARK HORIZON EMPIRE API ONLINE", "engines": ["Gemini-2.0", "Groq-Llama3", "Cloudflare-FLUX", "HF-FLUX-Dev", "Web-Search"]})
 
+# 1. مسار البحث الحي في الإنترنت (بيانات حية مجانية)
+@app.route("/api/search", methods=["POST", "OPTIONS"])
+def api_search():
+    if request.method == "OPTIONS": return ("", 204, cors())
+    q = (request.get_json(silent=True) or {}).get("query", "")
+    try:
+        r = requests.get("https://duckduckgo.com", params={"q": q, "format": "json", "no_html": 1}, timeout=10).json()
+        ans = r.get("AbstractText") or (r.get("RelatedTopics") or [{}]).get("Text", "")
+        return jsonify({"result": ans or "تم البحث، جاري التحليل عبر الذكاء الاصطناعي."}), 200, cors()
+    except Exception:
+        return jsonify({"result": ""}), 200, cors()
+
+# 2. مسار الدردشة وتدوير الحصص اليومية (Groq -> Gemini 2.0 -> HF Qwen)
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
-    if request.method == "OPTIONS":
-        return ("", 204, cors())
+    if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "")
     msgs = data.get("messages") or [{"role": "user", "content": prompt}]
 
-    groq_k = os.environ.get("GROQ_API_KEY", "")
-    if groq_k:
+    # الحصة 1: Groq Llama-3.3-70B
+    gk = os.environ.get("GROQ_API_KEY", "")
+    if gk:
         try:
             r = requests.post("https://groq.com",
-                headers={"Authorization": f"Bearer {groq_k}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
                 json={"model": "llama-3.3-70b-versatile", "messages": msgs}, timeout=12)
             if r.status_code == 200:
                 ch = r.json().get("choices") or []
-                if ch:
-                    return jsonify({"reply": ch["message"]["content"]}), 200, cors()
-        except Exception:
-            pass
+                if ch: return jsonify({"reply": ch["message"]["content"]}), 200, cors()
+        except Exception: pass
 
-    gem_k = os.environ.get("GEMINI_API_KEY", "")
-    if gem_k:
+    # الحصة 2: Google Gemini 2.0 Flash
+    gem = os.environ.get("GEMINI_API_KEY", "")
+    if gem:
         try:
-            u_txt = msgs[-1]["content"] if msgs else prompt
-            r = requests.post(f"https:" + "//generativelanguage." + "://googleapis.com" + gem_k,
-                json={"contents": [{"parts": [{"text": u_txt}]}]}, timeout=12)
+            ut = msgs[-1]["content"] if msgs else prompt
+            url = "https:" + "//generativelanguage." + "://googleapis.com" + gem
+            r = requests.post(url, json={"contents": [{"parts": [{"text": ut}]}]}, timeout=12)
             if r.status_code == 200:
                 ca = r.json().get("candidates") or []
-                if ca:
-                    return jsonify({"reply": ca["content"]["parts"]["text"]}), 200, cors()
-        except Exception:
-            pass
+                if ca: return jsonify({"reply": ca["content"]["parts"]["text"]}), 200, cors()
+        except Exception: pass
 
-    return jsonify({"error": "chat_busy"}), 503, cors()
+    # الحصة 3: Hugging Face Qwen 2.5
+    hf = os.environ.get("HF_TOKEN", "")
+    if hf:
+        try:
+            url = "https:" + "//router." + "huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions"
+            r = requests.post(url, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
+                json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": msgs, "max_tokens": 800}, timeout=15)
+            if r.status_code == 200:
+                ch = r.json().get("choices") or []
+                if ch: return jsonify({"reply": ch["message"]["content"]}), 200, cors()
+        except Exception: pass
 
+    return jsonify({"error": "all_chat_quotas_busy"}), 503, cors()
+
+# 3. مسار الصور النقية 8K وتدوير الحصص (Cloudflare FLUX -> HF FLUX.1-dev -> HF SD 3.5)
 @app.route("/api/image", methods=["POST", "OPTIONS"])
 def api_image():
-    if request.method == "OPTIONS":
-        return ("", 204, cors())
+    if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "majestic Arabian horse in golden desert sunset, 8k photorealistic")
-    errors = []
 
-    # 1. Cloudflare Workers AI FLUX-1-schnell
-    cf_id = os.environ.get("CF_ACCOUNT_ID", "")
-    cf_tok = os.environ.get("CF_API_TOKEN", "")
-    if cf_id and cf_tok:
+    # الحصة 1: Cloudflare Workers AI FLUX-1-schnell
+    cid, ctok = os.environ.get("CF_ACCOUNT_ID", ""), os.environ.get("CF_API_TOKEN", "")
+    if cid and ctok:
         try:
-            r = requests.post(
-                f"https:" + "//api." + "://cloudflare.com" + cf_id + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
-                headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "steps": 6}, timeout=20
-            )
+            url = "https:" + "//api." + "://cloudflare.com" + cid + "/ai/run/@cf/black-forest-labs/flux-1-schnell"
+            r = requests.post(url, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                json={"prompt": prompt, "steps": 6}, timeout=20)
             if r.status_code == 200:
                 b64 = r.json().get("result", {}).get("image")
-                if b64:
-                    return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-            errors.append(f"CF:{r.status_code}")
-        except Exception as e:
-            errors.append(f"CF_ERR:{e}")
+                if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
+        except Exception: pass
 
-    # 2. Hugging Face Router (FLUX.1-schnell & FLUX.1-dev)
-    hf_tok = os.environ.get("HF_TOKEN", "")
-    if hf_tok:
-        for mdl in ["black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.1-dev"]:
+    # الحصة 2 و 3: Hugging Face FLUX.1-dev & SD 3.5 Large
+    hf = os.environ.get("HF_TOKEN", "")
+    if hf:
+        for mdl in ["black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-3.5-large"]:
             try:
-                r = requests.post(
-                    f"https:" + "//router." + "huggingface.co/hf-inference/models/" + mdl,
-                    headers={"Authorization": f"Bearer {hf_tok}", "Content-Type": "application/json"},
-                    json={"inputs": prompt}, timeout=25
-                )
+                url = "https:" + "//router." + "huggingface.co/hf-inference/models/" + mdl
+                r = requests.post(url, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
+                    json={"inputs": prompt}, timeout=25)
                 if r.status_code == 200 and len(r.content) > 8000:
                     return Response(r.content, mimetype="image/jpeg", headers=cors())
-                errors.append(f"{mdl}:{r.status_code}")
-            except Exception as e:
-                errors.append(f"HF_ERR:{e}")
+            except Exception: pass
 
-    # 3. Fal.ai أو Together / OpenRouter Image إذا توفر مفتاح
-    fal_k = os.environ.get("FAL_KEY", "")
-    if fal_k:
-        try:
-            r = requests.post("https:" + "//fal." + "run/fal-ai/flux/schnell",
-                headers={"Authorization": f"Key {fal_k}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "image_size": "square_hd"}, timeout=20)
-            if r.status_code == 200:
-                imgs = r.json().get("images") or []
-                if imgs and imgs[0].get("url"):
-                    img_b = requests.get(imgs[0]["url"], timeout=15).content
-                    return Response(img_b, mimetype="image/jpeg", headers=cors())
-            errors.append(f"FAL:{r.status_code}")
-        except Exception as e:
-            errors.append(f"FAL_ERR:{e}")
-
-    return jsonify({"error": "all_failed", "details": errors}), 503, cors()
+    return jsonify({"error": "all_image_quotas_busy"}), 503, cors()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
