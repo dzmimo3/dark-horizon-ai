@@ -4,71 +4,71 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#060913">
-<link rel="manifest" href="manifest.json">
-<link rel="preconnect" href="https://workers.dev" crossorigin>
 <script src="https://puter.com"></script>
-<title>DARK HORIZON AI ULTRA ✦</title>
+<title>DARK HORIZON AI ✦</title>
 <style>
-:root{--bg:#060913;--surface:rgba(15,23,42,.82);--border:rgba(148,163,184,.2);--primary:#38bdf8;--accent:#818cf8;--text:#f8fafc;--muted:#94a3b8}
+:root{--bg:#060913;--surface:rgba(15,23,42,.9);--border:rgba(148,163,184,.22);--primary:#38bdf8;--accent:#818cf8;--text:#f8fafc;--muted:#94a3b8}
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
-body{background:radial-gradient(circle at 15% 10%,rgba(56,189,248,.15),transparent 40%),radial-gradient(circle at 85% 90%,rgba(129,140,248,.15),transparent 40%),var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-header{padding:14px 18px;background:rgba(6,9,19,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
-.new-btn{background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.35);padding:7px 14px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer}
-#chat{flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:16px}
-.welcome{margin:auto;text-align:center;max-width:350px;padding:24px 18px;background:var(--surface);border:1px solid var(--border);border-radius:24px}
-.welcome h2{font-size:20px;margin-bottom:8px}.welcome p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:16px}
-.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.chip{background:rgba(30,41,59,.9);border:1px solid var(--border);color:#e2e8f0;padding:8px 13px;border-radius:14px;font-size:12.5px;cursor:pointer}
-.msg{max-width:86%;padding:13px 16px;border-radius:20px;line-height:1.65;font-size:15px;word-wrap:break-word}
-.user{align-self:flex-start;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-bottom-right-radius:6px}
-.bot{align-self:flex-end;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:6px}
-.bot img,.user img,.bot video{width:100%;max-width:340px;border-radius:16px;margin-top:10px;display:block}
-.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.act-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.3);border-radius:12px;text-decoration:none;font-size:13px;font-weight:600;cursor:pointer}
-#previewBar{display:none;margin:0 12px 8px;padding:9px 14px;background:#0f172a;border:1px solid rgba(56,189,248,.35);border-radius:14px;align-items:center;justify-content:space-between;font-size:13px;color:var(--primary)}
-.dock{padding:10px 12px 14px;background:rgba(6,9,19,.92);border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;position:relative}
-.icon-btn{width:46px;height:46px;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+body{background:radial-gradient(circle at 15% 10%,rgba(56,189,248,.18),transparent 40%),radial-gradient(circle at 85% 90%,rgba(129,140,248,.18),transparent 40%),var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+header{padding:12px 15px;background:rgba(6,9,19,.94);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:6px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+select.v-sel{background:#0f172a;color:#38bdf8;border:1px solid rgba(56,189,248,.35);border-radius:10px;padding:5px 7px;font-size:11.5px;outline:none;max-width:135px}
+.new-btn{background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.35);padding:6px 11px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer}
+#chat{flex:1;overflow-y:auto;padding:16px 12px;display:flex;flex-direction:column;gap:14px}
+.welcome{margin:auto;text-align:center;max-width:360px;padding:22px 16px;background:var(--surface);border:1px solid var(--border);border-radius:22px}
+.welcome h2{font-size:19px;margin-bottom:8px}.welcome p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.chip{background:rgba(30,41,59,.92);border:1px solid var(--border);color:#e2e8f0;padding:7px 11px;border-radius:12px;font-size:12px;cursor:pointer}
+.msg{max-width:88%;padding:12px 15px;border-radius:18px;line-height:1.65;font-size:14.5px;word-wrap:break-word}
+.user{align-self:flex-start;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-bottom-right-radius:5px}
+.bot{align-self:flex-end;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:5px}
+.bot img,.user img,.bot video{width:100%;max-width:340px;border-radius:14px;margin-top:10px;display:block}
+.actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.act-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.3);border-radius:10px;text-decoration:none;font-size:12.5px;font-weight:600;cursor:pointer}
+#previewBar{display:none;margin:0 12px 8px;padding:8px 12px;background:#0f172a;border:1px solid rgba(56,189,248,.35);border-radius:12px;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--primary)}
+.dock{padding:9px 10px 13px;background:rgba(6,9,19,.94);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;position:relative}
+.icon-btn{width:44px;height:44px;border-radius:14px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 #sendBtn{background:linear-gradient(135deg,#38bdf8,#818cf8);color:#060913}
 #plusBtn{background:rgba(30,41,59,.9);color:var(--primary);border:1px solid var(--border)}
-.input-wrap{flex:1;background:rgba(15,23,42,.95);border:1px solid var(--border);border-radius:18px;padding:0 14px}
-#q{width:100%;background:transparent;border:none;color:#fff;padding:12px 0;font-size:15px;outline:none}
-#plusMenu{display:none;position:absolute;bottom:72px;left:12px;width:240px;background:#0f172a;border:1px solid var(--border);border-radius:18px;padding:8px;flex-direction:column;gap:4px;z-index:50}
-.pm-item{background:transparent;border:none;color:#f1f5f9;padding:11px 13px;border-radius:12px;font-size:14px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:right}
+.input-wrap{flex:1;background:rgba(15,23,42,.96);border:1px solid var(--border);border-radius:16px;padding:0 12px}
+#q{width:100%;background:transparent;border:none;color:#fff;padding:11px 0;font-size:14.5px;outline:none}
+#plusMenu{display:none;position:absolute;bottom:68px;left:10px;width:255px;background:#0f172a;border:1px solid var(--border);border-radius:16px;padding:7px;flex-direction:column;gap:3px;z-index:50;box-shadow:0 12px 30px rgba(0,0,0,.6)}
+.pm-item{background:transparent;border:none;color:#f1f5f9;padding:10px 12px;border-radius:10px;font-size:13.5px;display:flex;align-items:center;gap:8px;cursor:pointer;text-align:right}
 .loader{display:inline-flex;gap:5px;padding:4px 0}.loader span{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:b 1.2s infinite}.loader span:nth-child(2){animation-delay:.2s}.loader span:nth-child(3){animation-delay:.4s}
 @keyframes b{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><span class="dot"></span> DARK HORIZON ULTRA ✦</div>
-  <button type="button" class="new-btn" id="newBtn">+ محادثة جديدة</button>
+  <div class="brand"><span class="dot"></span> DARK HORIZON AI ✦</div>
+  
+  <button type="button" class="new-btn" id="newBtn">+ جديد</button>
 </header>
 <div id="chat">
   <div class="welcome" id="welcomeBox">
-    <h2>DARK HORIZON AI ULTRA</h2>
-    <p>مدعوم بأقوى محركات FLUX.2 Pro و Google Imagen 4 Ultra و GPT Image 2.6 بدون علامات مائية.</p>
+    <h2>DARK HORIZON AI STUDIO</h2>
+    <p>صور سينمائية 8K وفيديو 4 لقطات مع طبع اللوغو الخاص بك تلقائياً على كل صورة وفيديو تُنتجه.</p>
     <div class="chips">
-      <div class="chip" data-fill="صمم لي صورة 8K واقعية لـ ">🎨 صورة 8K واقعية</div>
-      <div class="chip" data-fill="أنشئ مشهد أنمي سينمائي لـ ">🎬 مشهد أنمي متحرك</div>
-      <div class="chip" data-fill="اكتب لي قصة قصيرة عن ">✍️ كتابة قصة</div>
+      <div class="chip" data-fill="صمم لي صورة 8K واقعية لـ ">🎨 صورة 8K + لوغو</div>
+      <div class="chip" data-fill="حول النص إلى فيديو سينمائي: ">🎬 فيديو 4 لقطات + لوغو</div>
+      <div class="chip" data-fill="صمم شخصية لعبة كاملة متحركة لـ ">🕹️ شخصية لعبة متحركة</div>
     </div>
   </div>
 </div>
-<div id="previewBar"><span id="prevName">📎 ملف مرفق</span><button type="button" id="clearAttBtn" style="background:none;border:none;color:#f87171;font-weight:700;cursor:pointer;font-size:16px">✕</button></div>
+<div id="previewBar"><span id="prevName">📎 ملف مرفق</span><button type="button" id="clearAttBtn" style="background:none;border:none;color:#f87171;font-weight:700;cursor:pointer;font-size:15px">✕</button></div>
 <input type="file" id="fileInp" style="display:none">
 <div class="dock">
   <button type="button" id="sendBtn" class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-  <div class="input-wrap"><input id="q" type="text" placeholder="اكتب وصف الصورة أو الفيديو أو سؤالك..."></div>
+  <div class="input-wrap"><input id="q" type="text" placeholder="اكتب رسالتك أو وصف الصورة أو الفيديو..."></div>
   <button type="button" id="plusBtn" class="icon-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   <div id="plusMenu">
-    <button type="button" class="pm-item" id="pickImgBtn">🖼️ إضافة صورة / تحريكها</button>
-    <button type="button" class="pm-item" id="pickDocBtn">📄 إضافة ملف نصي</button>
-    <button type="button" class="pm-item" data-fill="صمم لي صورة 8K واقعية لـ ">🎨 توليد صورة فائقة الواقعية</button>
-    <button type="button" class="pm-item" data-fill="أنشئ مشهد أنمي سينمائي لـ ">🎬 توليد فيديو سينمائي</button>
+    <button type="button" class="pm-item" id="pickLogoBtn">🏷️ اختيار لوغو للصور والفيديو</button>
+    <button type="button" class="pm-item" id="pickImgVisionBtn">👁️ صورة ⬅️ نص (تحليل ووصف)</button>
+    <button type="button" class="pm-item" id="pickImgVidBtn">🎞️ صورة ⬅️ فيديو متحرك</button>
+    <button type="button" class="pm-item" id="pickDocBtn">📄 تحليل ملف نصي / كود</button>
   </div>
 </div>
-<script src="app.js?v=1500"></script>
+<script src="app.js?v=13500"></script>
 </body>
 </html>
