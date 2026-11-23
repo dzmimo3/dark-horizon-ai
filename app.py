@@ -27,7 +27,7 @@ IDENTITY RULES: Always use masculine Arabic grammar for yourself (أنا أست�
 """
 
 def cors():
-    return {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS"}
+    return {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "X-AI-Signature": "DARK-HORIZON-FILMS-HYBRID-AI-V19"}
 
 def save_memory(q, a):
     u, k = os.environ.get("SUPABASE_URL", "").strip(), os.environ.get("SUPABASE_KEY", "").strip()
@@ -231,12 +231,32 @@ def api_image():
 
     # 1. محاولة جلب الصورة الحقيقية المرجعية 100% من الأرشيف العالمي (Wikimedia Commons) لأي معلم أو مكان أو شيء حقيقي
     ref_bytes, en_title = fetch_real_reference_image(clean_q)
+    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if ref_bytes:
+        # إضافة بصمة الذكاء الاصطناعي (Image-to-Image) فوق الصورة الحقيقية مع الحفاظ على البنية 100%
+        if cid and ctok:
+            try:
+                i2i_url = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "runwayml" + sl + "stable-diffusion-v1-5-img2img"
+                img_arr = list(ref_bytes[:450000])
+                ir = requests.post(
+                    i2i_url,
+                    headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                    json={
+                        "prompt": f"{en_title}, dramatic golden hour cinematic lighting, ultra detailed 8k photography, rich contrast, no text",
+                        "image": img_arr,
+                        "strength": 0.35,
+                        "guidance": 7.5
+                    },
+                    timeout=14
+                )
+                if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
+                    return Response(ir.content, mimetype="image/jpeg", headers=cors())
+            except Exception:
+                pass
         return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
 
     # 2. إذا كان الطلب خيالياً أو إبداعياً غير موجود في الواقع، نولّده بدقة عالية عبر Cloudflare FLUX
     prompt = craft_visual_prompt(raw_q)
-    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
         try:
