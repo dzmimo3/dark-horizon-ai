@@ -207,7 +207,27 @@ function playStudioVoice(text) {
 }
 
 async function buildCinemaVideo(promptTxt, uploadedImgUrl, targetBubble) {
-  targetBubble.innerHTML = "🎬 جاري توليد اللقطات عبر كروت GPU العالمية وإخراج الفيديو...";
+  targetBubble.innerHTML = "🎬 جاري توليد الفيديو عبر خادم Render (Gemini 2.0 / Cloudflare) وكروت GPU...";
+
+  // محاولة مسار Text-to-Video / Image-to-Video الحقيقي على خادم Render أولاً
+  try {
+    const ep = uploadedImgUrl ? "/i2v" : "/video";
+    const bodyData = uploadedImgUrl ? { image: uploadedImgUrl, prompt: promptTxt } : { prompt: promptTxt };
+    const rv = await fetch(CF_WORKER + ep, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyData)
+    });
+    if (rv.ok) {
+      const vd = await rv.json();
+      const vSrc = vd.video_url || vd.url || vd.video;
+      if (vSrc) {
+        targetBubble.innerHTML = `<div>🎬 تم إنتاج الفيديو عبر خادم Render (Text-to-Video):</div><video src="${vSrc}" controls autoplay loop playsinline></video><div class="actions"><a class="act-btn" href="${vSrc}" download="DarkHorizon_Render.mp4">⬇️ تحميل الفيديو</a></div>`;
+        return;
+      }
+    }
+  } catch (e) {}
+
   let frames = uploadedImgUrl ? [uploadedImgUrl] : [];
   if (!frames.length) {
     const r1 = await generateSuperImage(promptTxt + ", wide cinematic establishing shot");
