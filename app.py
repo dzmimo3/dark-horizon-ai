@@ -95,7 +95,7 @@ def api_image():
                 json={"prompt": prompt, "steps": 6}, timeout=20)
             if r.status_code == 200:
                 b64 = r.json().get("result", {}).get("image")
-                if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
+                if b64: return Response
         except Exception:
             pass
 
