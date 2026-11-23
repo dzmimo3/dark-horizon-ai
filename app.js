@@ -1,5 +1,5 @@
 const HORDE_API = String.fromCharCode(104,116,116,112,115,58,47,47,115,116,97,98,108,101,104,111,114,100,101,46,110,101,116,47,97,112,105,47,118,50);
-const CF_WORKER = String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,111,110,114,101,110,100,101,114,46,99,111,109);
+const CF_WORKER = "\x68\x74\x74\x70\x73\x3a\x2f\x2f\x64\x61\x72\x6b\x2d\x68\x6f\x72\x69\x7a\x6f\x6e\x2d\x61\x69\x2e\x6f\x6e\x72\x65\x6e\x64\x65\x72\x2e\x63\x6f\x6d";
 
 
 fetch(CF_WORKER + "/", { mode: "no-cors" }).catch(() => {});
@@ -93,7 +93,7 @@ async function generateViaGlobalHorde(enPrompt) {
     headers: { "Content-Type": "application/json", "apikey": "0000000000", "Client-Agent": "DarkHorizon:1.0:user" },
     body: JSON.stringify({
       prompt: enPrompt + " ### blurry, low quality, distorted, cartoon, watermark, ugly, deformed",
-      params: { sampler_name: "k_euler_a", cfg_scale: 7.5, width: 512, height: 512, steps: 20, n: 1 },
+      params: { sampler_name: "k_euler_a", cfg_scale: 7.5, width: 512, height: 512, steps: 15, n: 1 },
       models: ["Juggernaut XL", "AlbedoBase XL (SDXL)", "DreamShaper XL", "Deliberate", "EpicRealism"],
       nsfw: false
     })
