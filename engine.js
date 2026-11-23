@@ -1,4 +1,19 @@
 
+window.tryRealVideo = async function(promptTxt) {
+  try {
+    var r = await fetch(EDGE + "/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: promptTxt })
+    });
+    if (r.ok) {
+      var d = await r.json();
+      if (d && d.video_url) return d.video_url;
+    }
+  } catch (e) {}
+  return null;
+};
+
 window.enhanceViaTermux = async function(blob, mime) { try { var r = await fetch("http://127.0.0.1:5050", { method: "POST", headers: { "Content-Type": mime }, body: blob }); if (r.ok) return await r.blob(); } catch (e) {} return blob; };
 
 window.DH_VOICE_PROFILES = [
