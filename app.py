@@ -155,7 +155,7 @@ def api_image():
             cf_base = bytes.fromhex("68747470733a2f2f6170692e636c6f7564666c6172652e636f6d2f636c69656e742f76342f6163636f756e74732f").decode()
             r = requests.post(cf_base + cid + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
                 headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "steps": 6, "seed": seed}, timeout=18)
+                json={"prompt": prompt, "num_steps": 6}, timeout=18)
             if r.status_code == 200:
                 b64 = r.json().get("result", {}).get("image")
                 if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
@@ -175,6 +175,32 @@ def api_image():
                     return Response(r.content, mimetype="image/jpeg", headers=cors())
                 errs.append(f"{mdl.split('/')[-1]}:{r.status_code}")
             except Exception as e: errs.append(f"HF_E:{e}")
+
+    # 2. AI Horde GPU Cluster (مجاني غير محدود - Juggernaut XL / EpicRealism)
+    try:
+        hb = bytes.fromhex("68747470733a2f2f737461626c65686f7264652e6e65742f6170692f7632").decode()
+        hdrs = {"Content-Type": "application/json", "apikey": "0000000000", "Client-Agent": "DarkHorizon:5.0:user"}
+        r1 = requests.post(hb + "/generate/async", headers=hdrs, json={
+            "prompt": prompt + " ### blurry, watermark, ugly, low quality",
+            "params": {"sampler_name": "k_euler_a", "cfg_scale": 7.5, "width": 512, "height": 512, "steps": 20, "n": 1},
+            "models": ["Juggernaut XL", "EpicRealism", "AlbedoBase XL (SDXL)"]
+        }, timeout=12)
+        if r1.status_code in (200, 202):
+            tid = r1.json().get("id")
+            import time
+            for _ in range(15):
+                time.sleep(2)
+                chk = requests.get(f"{hb}/generate/check/{tid}", headers=hdrs, timeout=8).json()
+                if chk.get("done"):
+                    st = requests.get(f"{hb}/generate/status/{tid}", headers=hdrs, timeout=10).json()
+                    gen = next(iter(st.get("generations") or []), None)
+                    if gen and gen.get("img"):
+                        img_data = requests.get(gen["img"], timeout=15).content if gen["img"].startswith("http") else base64.b64decode(gen["img"])
+                        if len(img_data) > 5000:
+                            return Response(img_data, mimetype="image/jpeg", headers=cors())
+                    break
+    except Exception as e:
+        errs.append(f"Horde_E:{e}")
 
     return jsonify({"error": "img_busy", "details": errs}), 503, cors()
 
