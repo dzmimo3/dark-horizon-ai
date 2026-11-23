@@ -122,6 +122,23 @@ def api_image():
     prompt = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
     seed = data.get("seed") or random.randint(1, 9999999)
 
+    # الأولوية 0: Fal.ai FLUX.1 Schnell (أسرع وأوضح مولد صور في العالم - 1.5 ثانية)
+    fk = os.environ.get("FAL_KEY", "")
+    if fk:
+        try:
+            u = bytes.fromhex("68747470733a2f2f66616c2e72756e2f66616c2d61692f666c75782f7363686e656c6c").decode()
+            r = requests.post(u, headers={"Authorization": f"Key {fk}", "Content-Type": "application/json"},
+                json={"prompt": prompt, "image_size": "square_hd", "seed": seed}, timeout=15)
+            if r.status_code == 200:
+                imgs = r.json().get("images") or []
+                first_im = next(iter(imgs), None)
+                if first_im and first_im.get("url"):
+                    img_bytes = requests.get(first_im["url"], timeout=15).content
+                    if len(img_bytes) > 8000:
+                        return Response(img_bytes, mimetype="image/jpeg", headers=cors())
+        except Exception: pass
+
+
     # الحصة 1: Cloudflare Workers AI FLUX-1-schnell (10,000 وحدة يومياً)
     cid, ctok = os.environ.get("CF_ACCOUNT_ID", ""), os.environ.get("CF_API_TOKEN", "")
     if cid and ctok:
