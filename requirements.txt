@@ -6,3 +6,4 @@ pillow
 edge-tts
 ddgs
 gradio_client
+Pillow

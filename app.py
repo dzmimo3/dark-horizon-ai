@@ -90,7 +90,7 @@ def llm_think(messages, temp=0.5):
         try:
             u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "meta" + sl + "llama-3.3-70b-instruct-fp8-fast"
             r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"messages": messages}, timeout=14)
+                json={"messages": messages}, timeout=8)
             if r.status_code == 200:
                 rep = (r.json().get("result") or {}).get("response", "").strip()
                 if rep: return rep
@@ -100,33 +100,46 @@ def llm_think(messages, temp=0.5):
 def fetch_global_archive_media(query_ar, want_video=False):
     sl = chr(47)
     en_q = llm_think([
-        {"role": "system", "content": "Extract ONLY the exact English Wikipedia/Wikimedia search term for this landmark, city, person, or action (e.g. 'Maqam Echahid Algiers', 'Constantine bridge', 'racing cars'). Output ONLY the English term."},
+        {"role": "system", "content": "Translate or extract ONLY the exact English Wikipedia page title for this person, landmark, city, or object (e.g. 'Cristiano Ronaldo', 'Maqam Echahid', 'Constantine, Algeria'). Output ONLY the exact English title."},
         {"role": "user", "content": query_ar}
     ], temp=0.1).replace('"', '').strip() or query_ar
 
+    # 1. محاولة سريعة جداً (0.8 ثانية) عبر Wikipedia PageImages لجلب الصورة الرئيسية المطابقة 100% للشخصية أو المعلم
+    if not want_video:
+        try:
+            wp_u = f"https:{sl}{sl}en.wikipedia.org{sl}w{sl}api.php"
+            wr = requests.get(wp_u, params={
+                "action": "query", "titles": en_q, "prop": "pageimages",
+                "piprop": "thumbnail", "pithumbsize": 800, "format": "json", "redirects": 1
+            }, headers={"User-Agent": "DarkHorizonFilms/23.0"}, timeout=4)
+            if wr.status_code == 200:
+                pages = (wr.json().get("query") or {}).get("pages") or {}
+                for p in pages.values():
+                    th = (p.get("thumbnail") or {}).get("source")
+                    if th:
+                        ir = requests.get(th, headers={"User-Agent": "DarkHorizonFilms/23.0"}, timeout=5)
+                        if ir.status_code == 200 and len(ir.content) > 5000:
+                            return ir.content, en_q
+        except Exception:
+            pass
+
+    # 2. البحث في أرشيف Wikimedia Commons للصور والفيديوهات
     try:
         api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
         ftype = "video" if want_video else "bitmap"
         params = {
-            "action": "query",
-            "generator": "search",
-            "gsrsearch": f"filetype:{ftype} {en_q}",
-            "gsrnamespace": 6,
-            "gsrlimit": 4,
-            "prop": "imageinfo",
-            "iiprop": "url",
-            "iiurlwidth": 768,
-            "format": "json"
+            "action": "query", "generator": "search", "gsrsearch": f"filetype:{ftype} {en_q}",
+            "gsrnamespace": 6, "gsrlimit": 3, "prop": "imageinfo", "iiprop": "url", "iiurlwidth": 768, "format": "json"
         }
-        r = requests.get(api_u, params=params, headers={"User-Agent": "DarkHorizonFilms/22.0"}, timeout=7)
+        r = requests.get(api_u, params=params, headers={"User-Agent": "DarkHorizonFilms/23.0"}, timeout=5)
         if r.status_code == 200:
             pages = (r.json().get("query") or {}).get("pages") or {}
             for p in pages.values():
                 ii = next(iter(p.get("imageinfo") or []), {})
                 media_u = ii.get("url") if want_video else (ii.get("thumburl") or ii.get("url"))
                 if media_u:
-                    mr = requests.get(media_u, headers={"User-Agent": "DarkHorizonFilms/22.0"}, timeout=10)
-                    if mr.status_code == 200 and len(mr.content) > 15000:
+                    mr = requests.get(media_u, headers={"User-Agent": "DarkHorizonFilms/23.0"}, timeout=7)
+                    if mr.status_code == 200 and len(mr.content) > 10000:
                         return mr.content, en_q
     except Exception:
         pass
@@ -155,7 +168,7 @@ def transform_with_ai_img2img(raw_bytes, style_prompt):
                 "strength": 0.18,
                 "guidance": 8.0
             },
-            timeout=14
+            timeout=8
         )
         if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
             return ir.content
