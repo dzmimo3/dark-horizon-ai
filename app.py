@@ -96,36 +96,38 @@ def llm_think(messages, temp=0.5):
     return ""
 
 def craft_visual_prompt(raw_q):
-    # 1. البحث السريع في الموسوعات والويب لمعرفة الشكل الحقيقي لأي معلم أو شخصية أو سيارة أو شيء
-    ref_context = ""
-    try:
-        ref_context = web_search(raw_q)[:450]
-    except Exception:
-        pass
+    # قاموس هندسي مباشر للمعالم الشهيرة لضمان دقة الشكل المعماري 100%
+    landmarks = {
+        "مقام الشهيد": "Maqam Echahid Martyrs Memorial in Algiers Algeria, three giant curving concrete palm leaves rising and joining together at a pointed pinnacle on a hilltop, golden sunset, photorealistic 8k, no text",
+        "القصبة": "Casbah of Algiers old whitewashed Ottoman hillside houses, narrow stepped stone alleys, Mediterranean sea in background, sunny day, photorealistic 8k, no text",
+        "قسنطينة": "Sidi M'Cid suspension bridge in Constantine Algeria spanning a dramatic deep rocky gorge canyon, historic buildings on cliff edge, photorealistic 8k, no text",
+        "وهران": "Santa Cruz fort overlooking Oran bay and Mediterranean coast in Algeria at sunset, photorealistic 8k, no text",
+        "تيمقاد": "Timgad ancient Roman ruins in Algeria with Triumphal Arch of Trajan and stone colonnades at golden hour, photorealistic 8k, no text"
+    }
+    for k, v in landmarks.items():
+        if k in raw_q:
+            return v
 
-    # 2. موجه هندسي صارم يحول الطلب + الحقائق المرجعية إلى وصف بصري إنجليزي نقي 100% بدون تخمين
+    # البحث المرجعي ثم إلزام الذكاء الاصطناعي بوصف الشكل الهندسي والمادي وليس ترجمة الاسم حرفياً
+    ref_context = ""
+    try: ref_context = web_search(raw_q)[:500]
+    except Exception: pass
+
     sys_dir = (
-        "You are a precision Visual Prompt Engineer. Your job is to convert the user request into an exact, unambiguous English visual description (15-25 words). "
-        "RULES: "
-        "1) Identify the exact real-world subject, landmark, object, or anime character using the provided Reference Facts. "
-        "2) Describe physical shape, colors, environment, and lighting clearly. "
-        "3) Output ONLY the raw English visual prompt. ZERO conversational filler, ZERO quotes, ZERO text/watermarks."
+        "You are a Visual Concept Director. NEVER translate landmark or object names literally (never write words like 'Martyrs' or 'Monument' alone). "
+        "Instead, describe the EXACT physical geometry, architectural shape, materials, colors, and setting in vivid English (20-30 words). "
+        "Output ONLY the raw English visual description. ZERO quotes, ZERO text/watermarks."
     )
     user_payload = f"User Request: {raw_q}\nReference Facts:\n{ref_context}" if ref_context else f"User Request: {raw_q}"
-    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": user_payload}], temp=0.1)
+    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": user_payload}], temp=0.15)
 
-    # 3. طبقة تنقية وفحص ذاتي (Self-Guard) للتأكد من نقاء الوصف قبل الرسم
     if len(en) > 4:
-        for prefix in ["Here is", "Sure", "Prompt:", "English:"]:
-            if prefix.lower() in en.lower():
-                en = en.split(":")[-1]
-        clean_en = en.replace('"', '').replace("'", "").strip()
-        if len(clean_en.split()) >= 3:
-            final_prompt = clean_en + ", photorealistic 8k, sharp focus, no text"
-            threading.Thread(target=save_memory, args=(f"[EXACT_VISUAL] {raw_q}", final_prompt), daemon=True).start()
-            return final_prompt
+        if ":" in en: en = en.split(":")[-1]
+        clean_en = en.replace('"', '').replace("'", "").strip() + ", photorealistic 8k, no text, no letters"
+        threading.Thread(target=save_memory, args=(f"[ARCH_VISUAL] {raw_q}", clean_en), daemon=True).start()
+        return clean_en
 
-    return raw_q + ", photorealistic 8k, cinematic lighting, no text"
+    return raw_q + ", photorealistic 8k, no text"
 
 EVOLUTION_TOPICS = [
     "Unreal Engine 5 Lumen Nanite real-time rendering techniques",
