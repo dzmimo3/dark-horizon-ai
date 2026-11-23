@@ -10,69 +10,56 @@ def cors():
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
     }
 
-def live_search_and_news(query):
-    snippets = []
+def web_search(query):
+    out = []
     tv = os.environ.get("TAVILY_API_KEY", "").strip()
     if tv:
         try:
             u = bytes.fromhex("68747470733a2f2f6170692e746176696c792e636f6d2f736561726368").decode()
-            r = requests.post(u, json={"api_key": tv, "query": query, "search_depth": "advanced", "max_results": 4}, timeout=10).json()
-            for item in r.get("results", []):
-                snippets.append(f"- [{item.get('title')}]: {item.get('content', '')[:260]}")
+            r = requests.post(u, json={"api_key": tv, "query": query, "max_results": 3}, timeout=8).json()
+            for x in r.get("results", []):
+                out.append(f"- {x.get('title')}: {x.get('content', '')[:250]}")
         except Exception: pass
-
-    if not snippets:
+    if not out:
         try:
             from ddgs import DDGS
             with DDGS() as ddgs:
-                for res in ddgs.text(query, max_results=4):
-                    snippets.append(f"- [{res.get('title')}]: {res.get('body', '')[:240]}")
+                for x in ddgs.text(query, max_results=3):
+                    out.append(f"- {x.get('title')}: {x.get('body', '')[:220]}")
         except Exception: pass
+    return "\n".join(out)
 
-    if not snippets:
+def save_db(q, ans):
+    su, sk = os.environ.get("SUPABASE_URL", "").strip().rstrip("/"), os.environ.get("SUPABASE_KEY", "").strip()
+    if su and sk:
         try:
-            u = bytes.fromhex("68747470733a2f2f61722e77696b6970656469612e6f72672f772f6170692e706870").decode()
-            w = requests.get(u, params={"action": "query", "list": "search", "srsearch": query, "format": "json", "srlimit": 2}, timeout=6).json()
-            for it in w.get("query", {}).get("search", []):
-                snip = it.get("snippet", "").replace('<span class="searchmatch">', '').replace('</span>', '')
-                snippets.append(f"- [ويكيبيديا - {it.get('title')}]: {snip}")
-        except Exception: pass
-
-    return "\n".join(snippets)
-
-def save_to_cloud(q, ans):
-    sb_u, sb_k = os.environ.get("SUPABASE_URL", "").strip().rstrip("/"), os.environ.get("SUPABASE_KEY", "").strip()
-    if sb_u and sb_k:
-        try:
-            requests.post(f"{sb_u}/rest/v1/archives",
-                headers={"apikey": sb_k, "Authorization": f"Bearer {sb_k}", "Content-Type": "application/json"},
-                json={"prompt": q[:1000], "response": ans[:12000]}, timeout=5)
+            requests.post(f"{su}/rest/v1/archives",
+                headers={"apikey": sk, "Authorization": f"Bearer {sk}", "Content-Type": "application/json"},
+                json={"prompt": q[:1000], "response": ans[:12000]}, timeout=4)
         except Exception: pass
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON FULL EMPIRE ONLINE"})
+    return jsonify({"status": "DARK HORIZON PURE CLEAN ENGINE V4 (NO G4F)"})
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()[:1500]
-    voice = data.get("voice") or "ar-SA-HamedNeural"
-    if not text: return jsonify({"error": "empty_text"}), 400, cors()
+    if not text: return jsonify({"error": "empty"}), 400, cors()
     try:
         import edge_tts
-        async def _gen():
-            comm = edge_tts.Communicate(text, voice)
+        async def _run():
+            comm = edge_tts.Communicate(text, "ar-SA-HamedNeural")
             buf = io.BytesIO()
-            async for chunk in comm.stream():
-                if chunk["type"] == "audio": buf.write(chunk["data"])
+            async for ch in comm.stream():
+                if ch["type"] == "audio": buf.write(ch["data"])
             return buf.getvalue()
-        mp3_bytes = asyncio.run(_gen())
-        if len(mp3_bytes) > 500: return Response(mp3_bytes, mimetype="audio/mpeg", headers=cors())
+        mp3 = asyncio.run(_run())
+        return Response(mp3, mimetype="audio/mpeg", headers=cors())
     except Exception as e:
         return jsonify({"error": str(e)}), 500, cors()
-    return jsonify({"error": "tts_failed"}), 503, cors()
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
     if request.method == "OPTIONS": return ("", 204, cors())
@@ -82,39 +69,47 @@ def api_chat():
     last_q = next(reversed(msgs), {"content": prompt}).get("content", prompt)
 
     ctx = ""
-    if any(k in last_q for k in ["بحث", "ابحث", "دراسة", "مقال", "تقرير", "أخبار", "اخبار", "ما هو", "من هو", "كيف"]):
-        found = live_search_and_news(last_q)
-        if found: ctx = f"\n\n[نتائج البحث والأخبار الحية الموثقة]:\n{found}"
+    if any(w in last_q for w in ["بحث", "ابحث", "دراسة", "مقال", "تقرير", "أخبار", "ما هو", "كيف"]):
+        found = web_search(last_q)
+        if found: ctx = f"\n\n[معلومات حية من البحث]:\n{found}"
 
-    sys_msg = "أنت DARK HORIZON AI، نظام ذكاء اصطناعي متكامل للأبحاث والبرمجة والتصميم. أجب بالعربية الفصحى بدقة وتنظيم." + ctx
-    final_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
-    reply = None
+    sys_msg = "أنت DARK HORIZON AI، مساعد ذكي شامل للبحث العلمي والبرمجة. أجب بالعربية الفصحى بدقة ووضوح." + ctx
+    clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
+    errs = []
 
     gk = os.environ.get("GROQ_API_KEY", "").strip()
-    if gk and not reply:
+    if gk:
         try:
             u = bytes.fromhex("68747470733a2f2f6170692e67726f712e636f6d2f6f70656e61692f76312f636861742f636f6d706c6574696f6e73").decode()
             r = requests.post(u, headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
-                json={"model": "llama-3.3-70b-versatile", "messages": final_msgs, "temperature": 0.6}, timeout=14)
+                json={"model": "llama-3.3-70b-versatile", "messages": clean_msgs}, timeout=15)
             if r.status_code == 200:
                 ch = next(iter(r.json().get("choices") or []), None)
-                if ch: reply = ch.get("message", {}).get("content", "")
-        except Exception: pass
+                if ch:
+                    rep = ch.get("message", {}).get("content", "")
+                    save_db(last_q, rep)
+                    return jsonify({"reply": rep}), 200, cors()
+            errs.append(f"Groq:{r.status_code}")
+        except Exception as e: errs.append(f"GroqErr:{e}")
 
     ork = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if ork and not reply:
-        for fm in ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free"]:
+    if ork:
+        for mdl in ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free", "google/gemini-2.0-flash-exp:free"]:
             try:
                 u = bytes.fromhex("68747470733a2f2f6f70656e726f757465722e61692f6170692f76312f636861742f636f6d706c6574696f6e73").decode()
                 r = requests.post(u, headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
-                    json={"model": fm, "messages": final_msgs}, timeout=15)
+                    json={"model": mdl, "messages": clean_msgs}, timeout=15)
                 if r.status_code == 200:
                     ch = next(iter(r.json().get("choices") or []), None)
-                    if ch: reply = ch.get("message", {}).get("content", ""); break
-            except Exception: pass
+                    if ch:
+                        rep = ch.get("message", {}).get("content", "")
+                        save_db(last_q, rep)
+                        return jsonify({"reply": rep}), 200, cors()
+                errs.append(f"OR:{r.status_code}")
+            except Exception as e: errs.append(f"ORErr:{e}")
 
     gem = os.environ.get("GEMINI_API_KEY", "").strip()
-    if gem and not reply:
+    if gem:
         try:
             u = bytes.fromhex("68747470733a2f2f67656e657261746976656c616e67756167652e676f6f676c65617069732e636f6d2f7631626574612f6d6f64656c732f67656d696e692d322e302d666c6173683a67656e6572617465436f6e74656e743f6b65793d").decode()
             r = requests.post(u + gem, json={"contents": [{"parts": [{"text": sys_msg + "\n\n" + last_q}]}]}, timeout=15)
@@ -122,24 +117,28 @@ def api_chat():
                 ca = next(iter(r.json().get("candidates") or []), None)
                 if ca:
                     pt = next(iter(ca.get("content", {}).get("parts") or []), {})
-                    reply = pt.get("text", "")
-        except Exception: pass
+                    rep = pt.get("text", "")
+                    save_db(last_q, rep)
+                    return jsonify({"reply": rep}), 200, cors()
+            errs.append(f"Gem:{r.status_code}")
+        except Exception as e: errs.append(f"GemErr:{e}")
 
     hf = os.environ.get("HF_TOKEN", "").strip()
-    if hf and not reply:
+    if hf:
         try:
             u = bytes.fromhex("68747470733a2f2f726f757465722e68756767696e67666163652e636f2f68662d696e666572656e63652f6d6f64656c732f5177656e2f5177656e322e352d3732422d496e7374727563742f76312f636861742f636f6d706c6574696f6e73").decode()
             r = requests.post(u, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
-                json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": final_msgs, "max_tokens": 900}, timeout=15)
+                json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": clean_msgs, "max_tokens": 900}, timeout=15)
             if r.status_code == 200:
                 ch = next(iter(r.json().get("choices") or []), None)
-                if ch: reply = ch.get("message", {}).get("content", "")
-        except Exception: pass
+                if ch:
+                    rep = ch.get("message", {}).get("content", "")
+                    save_db(last_q, rep)
+                    return jsonify({"reply": rep}), 200, cors()
+            errs.append(f"HF:{r.status_code}")
+        except Exception as e: errs.append(f"HFErr:{e}")
 
-    if reply:
-        save_to_cloud(last_q, reply)
-        return jsonify({"reply": reply}), 200, cors()
-    return jsonify({"error": "busy"}), 503, cors()
+    return jsonify({"reply": f"⚠️ تعذر الاتصال بالمحركات لحظياً ({', '.join(errs)})."}), 200, cors()
 
 @app.route("/api/image", methods=["POST", "OPTIONS"])
 def api_image():

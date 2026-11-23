@@ -1,7 +1,6 @@
 flask
 requests
 gunicorn
-g4f
 huggingface_hub
 pillow
 edge-tts
