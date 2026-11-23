@@ -1,4 +1,4 @@
-import os, io, base64, asyncio, requests
+import os, io, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
@@ -42,7 +42,7 @@ def recall_memory():
     url, key = os.environ.get("SUPABASE_URL", "").strip(), os.environ.get("SUPABASE_KEY", "").strip()
     if not url or not key: return ""
     try:
-        r = requests.get(f"{url}/rest/v1/archives?select=prompt,response&order=id.desc&limit=3",
+        r = requests.get(f"{url}/rest/v1/archives?select=prompt,response&order=id.desc&limit=6",
             headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=4)
         if r.status_code == 200 and r.json():
             return "\n[RECENT STUDIO MEMORY]:\n" + "\n".join(f"- {i.get('prompt','')[:120]} -> {i.get('response','')[:150]}" for i in r.json())
@@ -50,20 +50,39 @@ def recall_memory():
     return ""
 
 def web_search(q):
-    tk, sl = os.environ.get("TAVILY_API_KEY", "").strip(), chr(47)
+    sl = chr(47)
+    chunks = []
+    # 1. Wikipedia Encyclopedia API (Arabic & English)
+    lang = "ar" if any("\u0600" <= c <= "\u06FF" for c in q) else "en"
+    try:
+        wu = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
+        wr = requests.get(wu, params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 2},
+            headers={"User-Agent": "DarkHorizonFilmsBrain/11.0"}, timeout=5)
+        if wr.status_code == 200:
+            for item in (wr.json().get("query") or {}).get("search") or []:
+                clean_snip = item.get("snippet", "").replace('<span class="searchmatch">', "").replace("</span>", "")
+                chunks.append(f"[Wikipedia - {item.get('title')}]: {clean_snip}")
+    except Exception: pass
+
+    # 2. Tavily Deep Tech & Media Search
+    tk = os.environ.get("TAVILY_API_KEY", "").strip()
     if tk:
         try:
             u = "https:" + sl + sl + "api." + "tavily.com" + sl + "search"
-            r = requests.post(u, json={"api_key": tk, "query": q, "max_results": 4}, timeout=8)
+            r = requests.post(u, json={"api_key": tk, "query": q, "max_results": 3}, timeout=7)
             if r.status_code == 200 and r.json().get("results"):
-                return "\n".join(f"- {x.get('title')}: {x.get('content','')[:280]}" for x in r.json()["results"])
+                for x in r.json()["results"]:
+                    chunks.append(f"[Web - {x.get('title')}]: {x.get('content','')[:260]}")
         except Exception: pass
-    try:
-        from ddgs import DDGS
-        res = list(DDGS().text(q, max_results=4))
-        if res: return "\n".join(f"- {x.get('title')}: {x.get('body','')[:280]}" for x in res)
-    except Exception: pass
-    return ""
+
+    # 3. DuckDuckGo Global Knowledge
+    if len(chunks) < 3:
+        try:
+            from ddgs import DDGS
+            for x in list(DDGS().text(q, max_results=3)):
+                chunks.append(f"[DDG - {x.get('title')}]: {x.get('body','')[:250]}")
+        except Exception: pass
+    return "\n".join(chunks)
 
 def llm_think(messages, temp=0.5):
     sl, gk = chr(47), os.environ.get("GROQ_API_KEY", "").strip()
@@ -104,7 +123,7 @@ def craft_visual_prompt(raw_q):
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON FILMS MASTER BRAIN v10.0 ONLINE"}), 200, cors()
+    return jsonify({"status": "DARK HORIZON FILMS MASTER BRAIN v11.0 AUTONOMOUS SELF-EVOLVING ONLINE"}), 200, cors()
 
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
@@ -115,7 +134,7 @@ def api_chat():
     last_q = next(reversed(msgs), {"content": prompt}).get("content", prompt)
 
     ctx = ""
-    if any(w in last_q for w in ["بحث", "ابحث", "دراسة", "مقال", "تقرير", "أخبار", "ما هو", "كيف", "search", "latest"]):
+    if len(last_q.split()) >= 2:
         found = web_search(last_q)
         if found: ctx += f"\n\n[LIVE WEB RESEARCH]:\n{found}"
     mem = recall_memory()
@@ -196,6 +215,43 @@ def api_tts():
         return Response(asyncio.run(gen()), mimetype="audio/mpeg", headers=cors())
     except Exception as e:
         return jsonify({"error": str(e)}), 500, cors()
+
+
+EVOLUTION_TOPICS = [
+    "Unreal Engine 5 Lumen Nanite real-time rendering techniques",
+    "Japanese anime sakuga keyframe animation and cel shading techniques",
+    "Modern AI video diffusion temporal consistency and physics simulation",
+    "Hollywood cinematography lighting, anamorphic lenses, and color grading",
+    "AAA game character rigging, motion capture, and inverse kinematics",
+    "Latest breakthroughs in artificial intelligence, data science, and neural rendering"
+]
+
+def run_self_evolution_cycle():
+    topic = random.choice(EVOLUTION_TOPICS)
+    research = web_search(topic)
+    if not research: return "no_data"
+    insight = llm_think([
+        {"role": "system", "content": "You are the self-evolving AI brain of DARK HORIZON FILMS. Summarize these new findings into 3 actionable technical rules for filmmaking, anime, game design, and AI:"},
+        {"role": "user", "content": f"Topic: {topic}\nFindings:\n{research}"}
+    ], temp=0.4)
+    if insight:
+        save_memory(f"[AUTO_EVOLUTION_KNOWLEDGE] {topic}", insight)
+        return topic
+    return "skipped"
+
+def background_brain_loop():
+    while True:
+        try:
+            run_self_evolution_cycle()
+        except Exception: pass
+        time.sleep(900)  # يتعلّم موضوعاً جديداً كل 15 دقيقة تلقائياً
+
+threading.Thread(target=background_brain_loop, daemon=True).start()
+
+@app.route("/api/evolve", methods=["GET", "POST"])
+def api_evolve():
+    learned = run_self_evolution_cycle()
+    return jsonify({"status": "DARK HORIZON BRAIN EVOLVED", "learned_topic": learned}), 200, cors()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
