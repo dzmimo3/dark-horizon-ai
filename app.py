@@ -3,6 +3,18 @@ from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
+STUDIO_ENCYCLOPEDIA = """
+[DARK HORIZON FILMS - MASTER PRODUCTION BRAIN]
+1. LIVE-ACTION CINEMA: Shot on ARRI Alexa 65, anamorphic lens, photorealistic 8K, natural skin textures, volumetric sunlight, depth of field.
+2. JAPANESE ANIME (SAKUGA): Key animation by MAPPA & Ufotable, sharp cel-shaded lighting, dramatic speed lines, glowing aura VFX, expressive dynamic framing.
+3. 3D CGI ANIMATION: Pixar & DreamWorks feature film quality, subsurface scattering, global illumination, expressive 3D character rigging, rich textures.
+4. 2D CARTOON (CEL): Classic hand-drawn 2D cel animation, fluid smear frames, vibrant painted backgrounds, expressive linework.
+5. AAA VIDEO GAME (UNREAL ENGINE 5): Ray-traced reflections, Nanite photorealistic environment, third-person dynamic action camera, PBR materials.
+6. CREATIVE PHOTOGRAPHY: Editorial Hasselblad medium format, dramatic chiaroscuro studio lighting, golden hour rim light.
+7. TEXT-TO-VIDEO MOTION: Sequential keyframe continuity, temporal motion blur, tracking camera movement, dynamic physics particles.
+"""
+
+
 def cors():
     return {
         "Access-Control-Allow-Origin": "*",
@@ -74,7 +86,7 @@ def api_chat():
         if found: ctx = f"\n\n[معلومات حية من البحث]:\n{found}"
 
     sys_msg = (
-        "You are DARK HORIZON AI PRO, a universal polyglot AI assistant. "
+        "You are the Master AI Director & Production Brain of DARK HORIZON FILMS. You possess complete mastery over: " + STUDIO_ENCYCLOPEDIA + " "
         "Understand and respond fluently in ANY world language (Arabic, English, French, Spanish, etc.), "
         "ANY regional dialect (Algerian Darja, Moroccan, Tunisian, Egyptian, Gulf, Levantine), "
         "and ALL programming languages (Python, JS, C++, Rust, HTML/CSS, SQL, Bash, etc.). "
