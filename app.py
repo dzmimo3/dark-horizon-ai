@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import os, io, urllib.parse, xml.etree.ElementTree as ET, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
@@ -49,105 +50,63 @@ def recall_memory():
     except Exception: pass
     return ""
 
-def google_and_web_research(q):
+def fetch_google_facts_fast(q):
     sl = chr(47)
-    chunks = []
-    enc_q = urllib.parse.quote(q)
+    enc = urllib.parse.quote(q)
     is_ar = any("\u0600" <= c <= "\u06FF" for c in q)
 
-    # 1. Google News RSS (أحدث أخبار ومقالات قوقل مجاناً 100% بدون مفتاح)
-    try:
-        hl = "ar&gl=DZ&ceid=DZ:ar" if is_ar else "en-US&gl=US&ceid=US:en"
-        gn_url = f"https:{sl}{sl}://google.com{sl}rss{sl}search?q={enc_q}&hl={hl}"
-        gr = requests.get(gn_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
-        if gr.status_code == 200:
-            root = ET.fromstring(gr.text)
-            for item in root.findall(".//item")[:3]:
-                title = item.findtext("title", "")
-                pub = item.findtext("pubDate", "")[:16]
-                chunks.append(f"[Google News ({pub})]: {title}")
-    except Exception: pass
-
-    # 2. Wikipedia Visual & Factual Reference (وصف المعالم والأماكن والشخصيات بدقة)
-    lang = "ar" if is_ar else "en"
-    try:
-        wu = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
-        wr = requests.get(wu, params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 2},
-            headers={"User-Agent": "DarkHorizonFilmsBrain/12.0"}, timeout=5)
-        if wr.status_code == 200:
-            for item in (wr.json().get("query") or {}).get("search") or []:
-                snip = item.get("snippet", "").replace('<span class="searchmatch">', "").replace("</span>", "")
-                chunks.append(f"[Encyclopedia - {item.get('title')}]: {snip}")
-    except Exception: pass
-
-    # 3. Google Images / Videos / Web Metadata via DuckDuckGo & Tavily
-    tk = os.environ.get("TAVILY_API_KEY", "").strip()
-    if tk:
+    def get_gnews():
         try:
-            tu = "https:" + sl + sl + "api." + "tavily.com" + sl + "search"
-            tr = requests.post(tu, json={"api_key": tk, "query": q, "include_images": True, "max_results": 3}, timeout=7)
-            if tr.status_code == 200:
-                data = tr.json()
-                for x in (data.get("results") or []):
-                    chunks.append(f"[Google/Web Article - {x.get('title')}]: {x.get('content','')[:250]}")
-                for img_u in (data.get("images") or [])[:2]:
-                    chunks.append(f"[Reference Image URL]: {img_u}")
+            hl = "ar&gl=DZ&ceid=DZ:ar" if is_ar else "en-US&gl=US&ceid=US:en"
+            r = requests.get(f"https:{sl}{sl}://google.com{sl}rss{sl}search?q={enc}&hl={hl}", timeout=3)
+            if r.status_code == 200:
+                root = ET.fromstring(r.text)
+                return [f"GoogleNews: {i.findtext('title','')}" for i in root.findall(".//item")[:2]]
         except Exception: pass
+        return []
 
-    if len(chunks) < 3:
+    def get_wiki():
         try:
-            from ddgs import DDGS
-            for x in list(DDGS().text(q, max_results=3)):
-                chunks.append(f"[Web Data - {x.get('title')}]: {x.get('body','')[:240]}")
+            lang = "ar" if is_ar else "en"
+            r = requests.get(f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php",
+                params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 2},
+                headers={"User-Agent": "DarkHorizonFilms/16.0"}, timeout=3)
+            if r.status_code == 200:
+                return [f"Wiki({x.get('title')}): {x.get('snippet','').replace('<span class="searchmatch">','').replace('</span>','')}"
+                        for x in (r.json().get("query") or {}).get("search") or []]
         except Exception: pass
+        return []
 
-    return "\n".join(chunks)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f1, f2 = ex.submit(get_gnews), ex.submit(get_wiki)
+        res = f1.result(timeout=3.5) + f2.result(timeout=3.5)
+    return "\n".join(res)
 
 def web_search(q):
-    return google_and_web_research(q)
-
-def llm_think(messages, temp=0.5):
-    sl, gk = chr(47), os.environ.get("GROQ_API_KEY", "").strip()
-    if gk:
-        try:
-            u = "https:" + sl + sl + "api." + "groq.com" + sl + "openai" + sl + "v1" + sl + "chat" + sl + "completions"
-            r = requests.post(u, headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": temp}, timeout=14)
-            if r.status_code == 200:
-                ch = next(iter(r.json().get("choices") or []), None)
-                if ch: return ch.get("message", {}).get("content", "").strip()
-        except Exception: pass
-    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
-    if cid and ctok:
-        try:
-            u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "meta" + sl + "llama-3.3-70b-instruct-fp8-fast"
-            r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"messages": messages}, timeout=15)
-            if r.status_code == 200:
-                rep = (r.json().get("result") or {}).get("response", "").strip()
-                if rep: return rep
-        except Exception: pass
-    return ""
+    return fetch_google_facts_fast(q)
 
 def craft_visual_prompt(raw_q):
-    if any(k in raw_q for k in ["مقام الشهيد", "الشهيد", "الجزائر"]):
-        return "Maqam Echahid Martyrs Memorial monument in Algiers Algeria, three iconic curving concrete palm leaves meeting at the top, sunset golden sky, photorealistic 8k, no text"
+    facts = ""
+    try: facts = fetch_google_facts_fast(raw_q)[:500]
+    except Exception: pass
     sys_dir = (
-        "Translate and expand the user visual request from ANY language into a vivid English image generation prompt (max 25 words, photorealistic 8k, no text/watermarks). "
+        "You are the Visual Director of DARK HORIZON FILMS. Using the Google/Wikipedia facts provided, "
+        "translate and describe the exact real-world appearance of the subject in English (max 25 words, photorealistic 8k, no text/watermarks). "
         "Output ONLY the English prompt."
     )
-    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": raw_q}], temp=0.25)
+    user_msg = f"Request: {raw_q}\nGoogle/Wiki Facts:\n{facts}" if facts else raw_q
+    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": user_msg}], temp=0.2)
     if len(en) > 5:
-        clean_en = en.replace('"', '').strip() + ", no text, no watermark"
-        threading.Thread(target=save_memory, args=(f"[BRAIN_VISUAL] {raw_q}", clean_en), daemon=True).start()
+        clean_en = en.replace('"', '').strip() + ", photorealistic 8k, no text"
+        threading.Thread(target=save_memory, args=(f"[GOOGLE_VISUAL] {raw_q}", clean_en), daemon=True).start()
         return clean_en
-    return raw_q + ", cinematic masterpiece, 8k, no text"
+    return raw_q + ", photorealistic 8k, cinematic, no text"
 
 @app.route("/", methods=["GET"])
 def home():
     mem_preview = recall_memory().splitlines()[:3]
     return jsonify({
-        "studio": "DARK HORIZON FILMS MASTER BRAIN v15.0",
+        "studio": "DARK HORIZON FILMS MASTER BRAIN v16.0 PARALLEL GOOGLE BRAIN",
         "status": "ONLINE & SELF-EVOLVING 24/7",
         "active_engines": {
             "cloudflare_ai": bool(os.environ.get("CF_ACCOUNT_ID") and os.environ.get("CF_API_TOKEN")),
@@ -194,7 +153,7 @@ def api_image():
             try:
                 r = requests.post(f"{cf_base}{cid}/ai/run/{mdl}",
                     headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                    json={"prompt": prompt}, timeout=16)
+                    json={"prompt": prompt}, timeout=11)
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
                     if "image" in ct and len(r.content) > 5000: return Response(r.content, mimetype=ct, headers=cors())
