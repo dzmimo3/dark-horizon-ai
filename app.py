@@ -1,4 +1,4 @@
-import os, io, time, random, threading, base64, asyncio, requests
+import os, io, urllib.parse, xml.etree.ElementTree as ET, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
@@ -49,7 +49,64 @@ def recall_memory():
     except Exception: pass
     return ""
 
+def google_and_web_research(q):
+    sl = chr(47)
+    chunks = []
+    enc_q = urllib.parse.quote(q)
+    is_ar = any("\u0600" <= c <= "\u06FF" for c in q)
+
+    # 1. Google News RSS (أحدث أخبار ومقالات قوقل مجاناً 100% بدون مفتاح)
+    try:
+        hl = "ar&gl=DZ&ceid=DZ:ar" if is_ar else "en-US&gl=US&ceid=US:en"
+        gn_url = f"https:{sl}{sl}://google.com{sl}rss{sl}search?q={enc_q}&hl={hl}"
+        gr = requests.get(gn_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+        if gr.status_code == 200:
+            root = ET.fromstring(gr.text)
+            for item in root.findall(".//item")[:3]:
+                title = item.findtext("title", "")
+                pub = item.findtext("pubDate", "")[:16]
+                chunks.append(f"[Google News ({pub})]: {title}")
+    except Exception: pass
+
+    # 2. Wikipedia Visual & Factual Reference (وصف المعالم والأماكن والشخصيات بدقة)
+    lang = "ar" if is_ar else "en"
+    try:
+        wu = f"https:{sl}{sl}{lang}.wikipedia.org{sl}w{sl}api.php"
+        wr = requests.get(wu, params={"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": 2},
+            headers={"User-Agent": "DarkHorizonFilmsBrain/12.0"}, timeout=5)
+        if wr.status_code == 200:
+            for item in (wr.json().get("query") or {}).get("search") or []:
+                snip = item.get("snippet", "").replace('<span class="searchmatch">', "").replace("</span>", "")
+                chunks.append(f"[Encyclopedia - {item.get('title')}]: {snip}")
+    except Exception: pass
+
+    # 3. Google Images / Videos / Web Metadata via DuckDuckGo & Tavily
+    tk = os.environ.get("TAVILY_API_KEY", "").strip()
+    if tk:
+        try:
+            tu = "https:" + sl + sl + "api." + "tavily.com" + sl + "search"
+            tr = requests.post(tu, json={"api_key": tk, "query": q, "include_images": True, "max_results": 3}, timeout=7)
+            if tr.status_code == 200:
+                data = tr.json()
+                for x in (data.get("results") or []):
+                    chunks.append(f"[Google/Web Article - {x.get('title')}]: {x.get('content','')[:250]}")
+                for img_u in (data.get("images") or [])[:2]:
+                    chunks.append(f"[Reference Image URL]: {img_u}")
+        except Exception: pass
+
+    if len(chunks) < 3:
+        try:
+            from ddgs import DDGS
+            for x in list(DDGS().text(q, max_results=3)):
+                chunks.append(f"[Web Data - {x.get('title')}]: {x.get('body','')[:240]}")
+        except Exception: pass
+
+    return "\n".join(chunks)
+
 def web_search(q):
+    return google_and_web_research(q)
+
+def _old_ws(q):
     sl = chr(47)
     chunks = []
     # 1. Wikipedia Encyclopedia API (Arabic & English)
@@ -114,7 +171,9 @@ def craft_visual_prompt(raw_q):
         "(Live-Action Film, Japanese Anime Sakuga, 3D CGI Pixar/Maya, 2D Cartoon Cel, AAA Game Unreal Engine 5, or Creative Photo). "
         "Output ONLY a vivid, master-level English prompt (max 30 words, zero text/watermarks) applying the exact camera lens, lighting, and studio rendering style."
     )
-    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": raw_q}], temp=0.25)
+    ref_data = google_and_web_research(raw_q)[:900]
+    user_payload = f"User Request: {raw_q}\nReal-World Google & Encyclopedia Reference Data:\n{ref_data}" if ref_data else raw_q
+    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": user_payload}], temp=0.25)
     if len(en) > 5:
         clean_en = en.replace('"', '').strip() + ", no text, no watermark"
         save_memory(f"[BRAIN_VISUAL] {raw_q}", clean_en)
@@ -123,7 +182,7 @@ def craft_visual_prompt(raw_q):
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON FILMS MASTER BRAIN v11.0 AUTONOMOUS SELF-EVOLVING ONLINE"}), 200, cors()
+    return jsonify({"status": "DARK HORIZON FILMS MASTER BRAIN v12.0 GOOGLE DATA + AUTONOMOUS BRAIN ONLINE"}), 200, cors()
 
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
