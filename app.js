@@ -1,4 +1,41 @@
-const WORKER = String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,100,122,109,105,109,111,51,46,119,111,114,107,101,114,115,46,100,101,118);
+const SERVER_MESH = [
+  { name: "Cloudflare Turbo", url: String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,100,122,109,105,109,111,51,46,119,111,114,107,101,114,115,46,100,101,118) },
+  { name: "HuggingFace Engine", url: String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,104,111,114,105,122,111,110,102,105,108,109,115,45,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,104,102,46,115,112,97,99,101) },
+  { name: "Render Core", url: String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,111,110,114,101,110,100,101,114,46,99,111,109) }
+];
+const WORKER = SERVER_MESH.url;
+
+async function meshRequest(path, payload) {
+  // سباق متوازي بين جميع خوادمك ومواقعك: أول خادم يرد بالنتيجة الصحيحة يفوز فوراً
+  const tasks = SERVER_MESH.map(srv => (async () => {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 22000);
+    try {
+      const res = await fetch(srv.url + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (!res.ok) throw new Error("fail");
+      const data = await res.json();
+      if (data && (data.image_url || data.reply)) {
+        data._server = srv.name;
+        return data;
+      }
+      throw new Error("empty");
+    } catch (e) {
+      clearTimeout(tid);
+      throw e;
+    }
+  })());
+  try {
+    return await Promise.any(tasks);
+  } catch (e) {
+    return null;
+  }
+}
 let history = [], attData = null, attType = null, attName = "";
 
 function toggleMenu() {
@@ -32,7 +69,7 @@ function addMsg(h, c) {
   return d;
 }
 
-async function smartPost(path, payload) {
+async function meshRequest(path, payload) {
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 16000);
@@ -69,7 +106,7 @@ async function generateUltraImage(rawPrompt) {
 
 
   // 2. الاحتياطي السحابي
-  const res = await smartPost("/image", { prompt: enPrompt, width: 1024, height: 1024 });
+  const res = await meshRequest("/image", { prompt: enPrompt, width: 1024, height: 1024 });
   if (res && res.image_url && !res.image_url.includes("pollinations")) {
     return { url: res.image_url, engine: res.engine || "FLUX.1-dev" };
   }
@@ -213,7 +250,7 @@ async function send() {
   history.push({ role: "user", content: fp });
 
   let replyText = null;
-  const d = await smartPost("/chat", { messages: history.slice(-6) });
+  const d = await meshRequest("/chat", { messages: history.slice(-6) });
   if (d && d.reply) replyText = d.reply;
   else if (window.puter && puter.ai && puter.ai.chat) {
     try {
