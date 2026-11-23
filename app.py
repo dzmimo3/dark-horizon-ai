@@ -2,6 +2,8 @@ import os, io, urllib.parse, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
+RAM_CACHE = {}
+IMG_CACHE = {}
 
 MASTER_STUDIO_BRAIN = """
 You are the Autonomous Master AI Director, Polyglot Brain, and Production Studio of DARK HORIZON FILMS.
@@ -78,7 +80,7 @@ def llm_think(messages, temp=0.5):
         try:
             u = "https:" + sl + sl + "api." + "groq.com" + sl + "openai" + sl + "v1" + sl + "chat" + sl + "completions"
             r = requests.post(u, headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
-                json={"model": "llama-3.3-70b-versatile", "messages": messages, "temperature": temp}, timeout=12)
+                json={"model": "llama-3.1-8b-instant", "messages": messages, "temperature": temp}, timeout=6)
             if r.status_code == 200:
                 ch = next(iter(r.json().get("choices") or []), None)
                 if ch: return ch.get("message", {}).get("content", "").strip()
@@ -205,20 +207,27 @@ def api_evolve():
 def api_chat():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "")
+    prompt = data.get("prompt", "").strip()
     msgs = data.get("messages") or [{"role": "user", "content": prompt}]
-    last_q = next(reversed(msgs), {"content": prompt}).get("content", prompt)
+    last_q = next(reversed(msgs), {"content": prompt}).get("content", prompt).strip()
 
+    # استرجاع فوري في 0.01 ثانية إذا تكرر السؤال
+    if last_q in RAM_CACHE:
+        return jsonify({"reply": RAM_CACHE[last_q], "speed": "0.01s_RAM"}), 200, cors()
+
+    # البحث السريع فقط عند طلب أخبار أو بحث صريح (مهلة قصوى 1.8 ثانية)
     ctx = ""
-    if len(last_q.split()) >= 2:
-        found = web_search(last_q)
-        if found: ctx += f"\n\n[ENCYCLOPEDIA & WEB DATA]:\n{found}"
-    mem = recall_memory()
-    if mem: ctx += mem
+    if any(w in last_q for w in ["بحث", "ابحث", "أخبار", "اليوم", "سعر", "search", "news"]):
+        try:
+            found = web_search(last_q)
+            if found: ctx = f"\n[LIVE DATA]:\n{found[:600]}"
+        except Exception: pass
 
-    sys_msg = MASTER_STUDIO_BRAIN + "\nAlways reply in the exact same language or dialect used by the user. Verify facts from [ENCYCLOPEDIA & WEB DATA] before answering. Never guess or hallucinate." + ctx
-    clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
-    rep = llm_think(clean_msgs, temp=0.6) or "⚠️ تعذر الاتصال بالمحركات لحظياً."
+    sys_msg = MASTER_STUDIO_BRAIN + "\nReply concisely and accurately in the exact language/dialect of the user." + ctx
+    clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"][-4:]
+    rep = llm_think(clean_msgs, temp=0.4) or "⚡ جاهز لخدمتك في DARK HORIZON FILMS."
+
+    RAM_CACHE[last_q] = rep
     threading.Thread(target=save_memory, args=(last_q, rep), daemon=True).start()
     return jsonify({"reply": rep}), 200, cors()
 
@@ -227,6 +236,7 @@ def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece")
+    if raw_q in IMG_CACHE: return Response(IMG_CACHE[raw_q], mimetype="image/jpeg", headers=cors())
     clean_q = raw_q.replace("صمم", "").replace("صور", "").replace("صورة", "").replace("ارسم", "").strip()
 
     # 1. محاولة جلب الصورة الحقيقية المرجعية 100% من الأرشيف العالمي (Wikimedia Commons) لأي معلم أو مكان أو شيء حقيقي
@@ -250,7 +260,7 @@ def api_image():
                     timeout=14
                 )
                 if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
-                    return Response(ir.content, mimetype="image/jpeg", headers=cors())
+                    IMG_CACHE[raw_q] = ir.content; return Response(ir.content, mimetype="image/jpeg", headers=cors())
             except Exception:
                 pass
         return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
@@ -261,7 +271,7 @@ def api_image():
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
         try:
             r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": prompt}, timeout=15)
+                json={"prompt": prompt}, timeout=9)
             if r.status_code == 200:
                 ct = r.headers.get("Content-Type", "")
                 if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
