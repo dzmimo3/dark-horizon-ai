@@ -150,9 +150,9 @@ def transform_with_ai_img2img(raw_bytes, style_prompt):
             i2i_url,
             headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
             json={
-                "prompt": f"{style_prompt}, cinematic AI art transformation, dramatic golden lighting, 8k ultra detailed, masterpiece, no text",
+                "prompt": f"{style_prompt}, preserve exact original architecture and geometry, subtle AI cinema color grading and lighting, dramatic golden lighting, 8k ultra detailed, masterpiece, no text",
                 "image": list(small_bytes),
-                "strength": 0.42,
+                "strength": 0.18,
                 "guidance": 8.0
             },
             timeout=14
