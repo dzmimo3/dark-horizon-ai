@@ -98,7 +98,7 @@ def llm_think(messages, temp=0.5):
 def craft_visual_prompt(raw_q):
     # قاموس هندسي مباشر للمعالم الشهيرة لضمان دقة الشكل المعماري 100%
     landmarks = {
-        "مقام الشهيد": "Maqam Echahid Martyrs Memorial in Algiers Algeria, three giant curving concrete palm leaves rising and joining together at a pointed pinnacle on a hilltop, golden sunset, photorealistic 8k, no text",
+        "مقام الشهيد": "Maqam Echahid Martyrs Memorial in Algiers Algeria, three massive curving white concrete fins leaning inward and joining together beneath a small ribbed Islamic dome at the top, no bird, no wings, golden sunset, photorealistic 8k, no text",
         "القصبة": "Casbah of Algiers old whitewashed Ottoman hillside houses, narrow stepped stone alleys, Mediterranean sea in background, sunny day, photorealistic 8k, no text",
         "قسنطينة": "Sidi M'Cid suspension bridge in Constantine Algeria spanning a dramatic deep rocky gorge canyon, historic buildings on cliff edge, photorealistic 8k, no text",
         "وهران": "Santa Cruz fort overlooking Oran bay and Mediterranean coast in Algeria at sunset, photorealistic 8k, no text",
