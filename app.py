@@ -96,17 +96,26 @@ def llm_think(messages, temp=0.5):
     return ""
 
 def craft_visual_prompt(raw_q):
+    # قاموس فوري لأشهر الطلبات لضمان الدقة في جزء من الثانية
+    if any(k in raw_q for k in ["حصان", "خيل"]):
+        return "majestic Arabian horse galloping in golden desert dunes at sunset, dramatic warm lighting, photorealistic 8k, no text"
+    if any(k in raw_q for k in ["مرسيدس", "mercedes"]):
+        return "sleek black Mercedes AMG sports car speeding on coastal highway at sunset, motion blur, photorealistic 8k, no text"
+    if any(k in raw_q for k in ["مقام الشهيد", "الشهيد"]):
+        return "Maqam Echahid Martyrs Memorial monument in Algiers Algeria, three curving concrete palm leaves meeting at top, sunset, 8k, no text"
+
     sys_dir = (
-        MASTER_STUDIO_BRAIN +
-        "\nTASK: Translate and expand the user request from ANY language/dialect into a vivid English visual prompt (max 28 words, zero text/watermarks). "
-        "Detect the exact subject (e.g. Arabian horse, Mercedes car, anime battle) and apply studio lighting and camera style. Output ONLY the English prompt."
+        "Translate the user visual request from Arabic/French/any dialect into a direct English image prompt (max 20 words). "
+        "CRITICAL: Output ONLY the English visual description itself. Do NOT write 'Here is', 'Sure', or any conversational words."
     )
-    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": raw_q}], temp=0.25)
-    if len(en) > 5:
-        clean_en = en.replace('"', '').strip() + ", photorealistic 8k, no text"
+    en = llm_think([{"role": "system", "content": sys_dir}, {"role": "user", "content": raw_q}], temp=0.1)
+    if len(en) > 4:
+        # تنظيف أي مقدمات إن وجدت
+        if ":" in en: en = en.split(":")[-1]
+        clean_en = en.replace('"', '').strip() + ", photorealistic 8k, cinematic lighting, no text"
         threading.Thread(target=save_memory, args=(f"[VISUAL_BRAIN] {raw_q}", clean_en), daemon=True).start()
         return clean_en
-    return raw_q + ", cinematic masterpiece, 8k, no text"
+    return raw_q + ", photorealistic 8k, no text"
 
 EVOLUTION_TOPICS = [
     "Unreal Engine 5 Lumen Nanite real-time rendering techniques",
