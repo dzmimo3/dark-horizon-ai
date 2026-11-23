@@ -145,7 +145,19 @@ def craft_visual_prompt(raw_q):
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON FILMS MASTER BRAIN v12.0 GOOGLE DATA + AUTONOMOUS BRAIN ONLINE"}), 200, cors()
+    mem_preview = recall_memory().splitlines()[:3]
+    return jsonify({
+        "studio": "DARK HORIZON FILMS MASTER BRAIN v15.0",
+        "status": "ONLINE & SELF-EVOLVING 24/7",
+        "active_engines": {
+            "cloudflare_ai": bool(os.environ.get("CF_ACCOUNT_ID") and os.environ.get("CF_API_TOKEN")),
+            "groq_llm": bool(os.environ.get("GROQ_API_KEY")),
+            "huggingface": bool(os.environ.get("HF_TOKEN")),
+            "supabase_memory": bool(os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_KEY")),
+            "google_news_and_wiki": True
+        },
+        "recent_learned_memory": mem_preview
+    }), 200, cors()
 
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
