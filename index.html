@@ -163,72 +163,70 @@ async function translateToProPrompt(arText) {
 // توليد الصور الواقعية عبر سباق متوازي (Render Cloudflare + AI Horde GPU + Direct Flux)
 async function generateMasterImage(rawPrompt) {
   const enPrompt = await translateToProPrompt(rawPrompt);
-  const racers = [
-    // 1. خادم Render / Cloudflare المباشر
-    (async () => {
-      const r = await fetch(RENDER_API + "/api/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: enPrompt })
-      });
-      if (!r.ok) throw new Error("rn_img");
+
+  // 1. الأولوية الأولى: خادم Render الخاص بك (Cloudflare / Flux Dev)
+  try {
+    const r = await fetch(RENDER_API + "/api/image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: enPrompt })
+    });
+    if (r.ok) {
       const ct = r.headers.get("content-type") || "";
       if (ct.includes("image")) {
         const b = await r.blob();
-        if (b.size > 5000) return { url: URL.createObjectURL(b), engine: "Render-Cloudflare-8K" };
+        if (b.size > 8000) return { url: await stampLogoOnImage(URL.createObjectURL(b)), engine: "Render-Cloudflare-8K" };
       } else {
         const d = await r.json();
         const u = d.image_url || d.url;
-        if (u) return { url: u, engine: "Render-Pro-8K" };
+        if (u) return { url: await stampLogoOnImage(u), engine: "Render-Pro-8K" };
       }
-      throw new Error("rn_empty");
-    })(),
-    // 2. كروت GPU العالمية (Juggernaut XL / EpicRealism)
-    (async () => {
-      const r1 = await fetch(HORDE_API + "/generate/async", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": "0000000000", "Client-Agent": "DarkHorizon:2.0:user" },
-        body: JSON.stringify({
-          prompt: enPrompt + " ### blurry, low quality, cartoon, watermark, ugly",
-          params: { sampler_name: "k_euler_a", cfg_scale: 7.5, width: 512, height: 512, steps: 18, n: 1 },
-          models: ["Juggernaut XL", "EpicRealism", "AlbedoBase XL (SDXL)"],
-          nsfw: false
-        })
-      });
-      if (!r1.ok) throw new Error("h1");
+    }
+  } catch (e) {}
+
+  // 2. الأولوية الثانية: كروت GPU العالمية بأقوى نماذج الواقعية الفوتوغرافية (Juggernaut XL + RealVisXL + EpicRealism)
+  try {
+    const r1 = await fetch(HORDE_API + "/generate/async", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": "0000000000", "Client-Agent": "DarkHorizon:3.0:user" },
+      body: JSON.stringify({
+        prompt: "RAW photo, " + enPrompt + ", 8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3 ### (deformed, distorted, disfigured:1.3), poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, (mutated hands and fingers:1.4), disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, cartoon, 3d, render, watermark",
+        params: { sampler_name: "k_dpmpp_2m", cfg_scale: 7, width: 768, height: 768, steps: 26, karras: true, n: 1 },
+        models: ["Juggernaut XL", "RealVisXL V4.0", "EpicRealism", "AlbedoBase XL (SDXL)"],
+        nsfw: false
+      })
+    });
+    if (r1.ok) {
       const j1 = await r1.json();
-      for (let i = 0; i < 25; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        const st = await (await fetch(HORDE_API + "/generate/check/" + j1.id, { headers: { "Client-Agent": "DarkHorizon:2.0:user" } })).json();
-        if (st && st.done) {
-          const fd = await (await fetch(HORDE_API + "/generate/status/" + j1.id, { headers: { "Client-Agent": "DarkHorizon:2.0:user" } })).json();
-          const gen = fd && fd.generations ? fd.generations.at(0) : null;
-          if (gen && gen.img) return { url: gen.img.startsWith("http") ? gen.img : ("data:image/webp;base64," + gen.img), engine: gen.model || "Juggernaut-XL" };
-          break;
+      if (j1 && j1.id) {
+        for (let i = 0; i < 35; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const st = await (await fetch(HORDE_API + "/generate/check/" + j1.id, { headers: { "Client-Agent": "DarkHorizon:3.0:user" } })).json();
+          if (st && st.done) {
+            const fd = await (await fetch(HORDE_API + "/generate/status/" + j1.id, { headers: { "Client-Agent": "DarkHorizon:3.0:user" } })).json();
+            const gen = fd && fd.generations ? fd.generations.at(0) : null;
+            if (gen && gen.img) {
+              const rawImg = gen.img.startsWith("http") ? gen.img : ("data:image/webp;base64," + gen.img);
+              return { url: await stampLogoOnImage(rawImg), engine: (gen.model || "Juggernaut-XL-Pro") };
+            }
+            break;
+          }
         }
       }
-      throw new Error("h_to");
-    })(),
-    // 3. محرك FLUX المباشر السريع (نفس المحرك الذي أنتج صورك الأصلية)
-    (async () => {
-      const seed = Math.floor(Math.random() * 999999);
-      const u = IMG_CDN + encodeURIComponent(enPrompt) + "?width=1024&height=1024&nologo=true&model=flux&seed=" + seed;
-      const r = await fetch(u);
-      if (!r.ok) throw new Error("f_err");
-      const b = await r.blob();
-      if (b.size < 32000) throw new Error("limit_banner");
-      return { url: URL.createObjectURL(b), engine: "FLUX-Realism-1024" };
-    })()
-  ];
+    }
+  } catch (e) {}
 
+  // 3. الأولوية الثالثة: Google Imagen 4 Ultra عبر Puter (بدون علامة مائية)
   try {
-    const win = await Promise.any(racers);
-    win.url = await stampLogoOnImage(win.url);
-    return win;
-  } catch (e) {
-    return null;
-  }
+    if (window.puter && puter.ai && puter.ai.txt2img) {
+      const el = await puter.ai.txt2img(enPrompt, { model: "google/imagen-4.0-ultra" });
+      if (el && el.src) return { url: await stampLogoOnImage(el.src), engine: "Google-Imagen-4-Ultra" };
+    }
+  } catch (e) {}
+
+  return null;
 }
+
 async function askMasterAI(userPrompt) {
   const sys = "أنت DARK HORIZON AI، مساعد ذكاء اصطناعي خبير تتحدث بالعربية بطلاقة ووضوح.";
   const chatRacers = [
