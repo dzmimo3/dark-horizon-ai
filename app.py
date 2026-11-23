@@ -97,40 +97,71 @@ def llm_think(messages, temp=0.5):
         except Exception: pass
     return ""
 
-def fetch_real_reference_image(query_ar):
+def fetch_global_archive_media(query_ar, want_video=False):
     sl = chr(47)
-    # تحويل الاسم العربي إلى مصطلح البحث الدقيق في Wikimedia Commons
     en_q = llm_think([
-        {"role": "system", "content": "Extract ONLY the exact English Wikipedia/Wikimedia title for this landmark, person, object, or place (e.g. 'Maqam Echahid', 'Mercedes-AMG GT', 'Constantine bridges'). Output ONLY the exact title."},
+        {"role": "system", "content": "Extract ONLY the exact English Wikipedia/Wikimedia search term for this landmark, city, person, or action (e.g. 'Maqam Echahid Algiers', 'Constantine bridge', 'racing cars'). Output ONLY the English term."},
         {"role": "user", "content": query_ar}
     ], temp=0.1).replace('"', '').strip() or query_ar
 
     try:
         api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
+        ftype = "video" if want_video else "bitmap"
         params = {
             "action": "query",
             "generator": "search",
-            "gsrsearch": f"filetype:bitmap {en_q}",
+            "gsrsearch": f"filetype:{ftype} {en_q}",
             "gsrnamespace": 6,
-            "gsrlimit": 3,
+            "gsrlimit": 4,
             "prop": "imageinfo",
             "iiprop": "url",
-            "iiurlwidth": 1024,
+            "iiurlwidth": 768,
             "format": "json"
         }
-        r = requests.get(api_u, params=params, headers={"User-Agent": "DarkHorizonFilms/18.0"}, timeout=6)
+        r = requests.get(api_u, params=params, headers={"User-Agent": "DarkHorizonFilms/22.0"}, timeout=7)
         if r.status_code == 200:
             pages = (r.json().get("query") or {}).get("pages") or {}
             for p in pages.values():
                 ii = next(iter(p.get("imageinfo") or []), {})
-                img_u = ii.get("thumburl") or ii.get("url")
-                if img_u and any(ext in img_u.lower() for ext in [".jpg", ".jpeg", ".png"]):
-                    ir = requests.get(img_u, headers={"User-Agent": "DarkHorizonFilms/18.0"}, timeout=8)
-                    if ir.status_code == 200 and len(ir.content) > 15000:
-                        return ir.content, en_q
+                media_u = ii.get("url") if want_video else (ii.get("thumburl") or ii.get("url"))
+                if media_u:
+                    mr = requests.get(media_u, headers={"User-Agent": "DarkHorizonFilms/22.0"}, timeout=10)
+                    if mr.status_code == 200 and len(mr.content) > 15000:
+                        return mr.content, en_q
     except Exception:
         pass
     return None, en_q
+
+def transform_with_ai_img2img(raw_bytes, style_prompt):
+    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
+    if not (cid and ctok and raw_bytes):
+        return raw_bytes
+    try:
+        # ضغط أبعاد الصورة إلى 512x512 عبر PIL لتسريع التحويل بالذكاء الاصطناعي في ثانيتين
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+        im.thumbnail((512, 512))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=85)
+        small_bytes = buf.getvalue()
+
+        i2i_url = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "runwayml" + sl + "stable-diffusion-v1-5-img2img"
+        ir = requests.post(
+            i2i_url,
+            headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+            json={
+                "prompt": f"{style_prompt}, cinematic AI art transformation, dramatic golden lighting, 8k ultra detailed, masterpiece, no text",
+                "image": list(small_bytes),
+                "strength": 0.42,
+                "guidance": 8.0
+            },
+            timeout=14
+        )
+        if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
+            return ir.content
+    except Exception:
+        pass
+    return raw_bytes
 
 def craft_visual_prompt(raw_q):
     # قاموس هندسي مباشر للمعالم الشهيرة لضمان دقة الشكل المعماري 100%
@@ -236,21 +267,22 @@ def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece").strip()
-    if raw_q in IMG_CACHE:
-        return Response(IMG_CACHE[raw_q], mimetype="image/jpeg", headers=cors())
+    cache_key = "ai_arch_" + raw_q
+    if cache_key in IMG_CACHE:
+        return Response(IMG_CACHE[cache_key], mimetype="image/jpeg", headers=cors())
 
     clean_q = raw_q.replace("صمم", "").replace("صور", "").replace("صورة", "").replace("ارسم", "").strip()
-    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
 
-    # 1. البحث في الأرشيف الحقيقي فقط للمعالم والمدن المعروفة (تجنب التأخير في الطلبات الفنية/الإبداعية)
-    if any(k in raw_q for k in ["مقام", "قسنطينة", "القصبة", "وهران", "تيمقاد", "برج", "مسجد", "معلم", "مدينة"]):
-        ref_bytes, _ = fetch_real_reference_image(clean_q)
-        if ref_bytes:
-            IMG_CACHE[raw_q] = ref_bytes
-            return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
+    # 1. جلب الصورة الحقيقية من الأرشيف العالمي ثم تحويلها بالذكاء الاصطناعي (Image-to-Image)
+    ref_bytes, en_title = fetch_global_archive_media(clean_q, want_video=False)
+    if ref_bytes:
+        ai_transformed = transform_with_ai_img2img(ref_bytes, en_title)
+        IMG_CACHE[cache_key] = ai_transformed
+        return Response(ai_transformed, mimetype="image/jpeg", headers=cors())
 
-    # 2. التوليد الفوري السريع (2 ثانية) عبر Cloudflare FLUX.1-schnell
+    # 2. التوليد المباشر بالذكاء الاصطناعي للمشاهد الخيالية
     prompt = craft_visual_prompt(raw_q)
+    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
         try:
@@ -259,16 +291,26 @@ def api_image():
             if r.status_code == 200:
                 ct = r.headers.get("Content-Type", "")
                 if "image" in ct and len(r.content) > 4000:
-                    IMG_CACHE[raw_q] = r.content
+                    IMG_CACHE[cache_key] = r.content
                     return Response(r.content, mimetype=ct, headers=cors())
                 b64 = (r.json().get("result") or {}).get("image")
                 if b64:
                     img_data = base64.b64decode(b64)
-                    IMG_CACHE[raw_q] = img_data
+                    IMG_CACHE[cache_key] = img_data
                     return Response(img_data, mimetype="image/jpeg", headers=cors())
         except Exception:
             pass
     return jsonify({"error": "img_busy"}), 503, cors()
+
+@app.route("/api/archive_video", methods=["POST", "OPTIONS"])
+def api_archive_video():
+    if request.method == "OPTIONS": return ("", 204, cors())
+    data = request.get_json(silent=True) or {}
+    raw_q = data.get("prompt", "nature landscape").strip()
+    vid_bytes, _ = fetch_global_archive_media(raw_q, want_video=True)
+    if vid_bytes:
+        return Response(vid_bytes, mimetype="video/webm", headers=cors())
+    return jsonify({"error": "no_archive_video"}), 404, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
