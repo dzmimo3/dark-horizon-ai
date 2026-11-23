@@ -235,49 +235,39 @@ def api_chat():
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    raw_q = data.get("prompt", "cinematic masterpiece")
-    if raw_q in IMG_CACHE: return Response(IMG_CACHE[raw_q], mimetype="image/jpeg", headers=cors())
+    raw_q = data.get("prompt", "cinematic masterpiece").strip()
+    if raw_q in IMG_CACHE:
+        return Response(IMG_CACHE[raw_q], mimetype="image/jpeg", headers=cors())
+
     clean_q = raw_q.replace("صمم", "").replace("صور", "").replace("صورة", "").replace("ارسم", "").strip()
-
-    # 1. محاولة جلب الصورة الحقيقية المرجعية 100% من الأرشيف العالمي (Wikimedia Commons) لأي معلم أو مكان أو شيء حقيقي
-    ref_bytes, en_title = fetch_real_reference_image(clean_q)
     cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
-    if ref_bytes:
-        # إضافة بصمة الذكاء الاصطناعي (Image-to-Image) فوق الصورة الحقيقية مع الحفاظ على البنية 100%
-        if cid and ctok:
-            try:
-                i2i_url = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "runwayml" + sl + "stable-diffusion-v1-5-img2img"
-                img_arr = list(ref_bytes[:450000])
-                ir = requests.post(
-                    i2i_url,
-                    headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                    json={
-                        "prompt": f"{en_title}, dramatic golden hour cinematic lighting, ultra detailed 8k photography, rich contrast, no text",
-                        "image": img_arr,
-                        "strength": 0.35,
-                        "guidance": 7.5
-                    },
-                    timeout=14
-                )
-                if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
-                    IMG_CACHE[raw_q] = ir.content; return Response(ir.content, mimetype="image/jpeg", headers=cors())
-            except Exception:
-                pass
-        return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
 
-    # 2. إذا كان الطلب خيالياً أو إبداعياً غير موجود في الواقع، نولّده بدقة عالية عبر Cloudflare FLUX
+    # 1. البحث في الأرشيف الحقيقي فقط للمعالم والمدن المعروفة (تجنب التأخير في الطلبات الفنية/الإبداعية)
+    if any(k in raw_q for k in ["مقام", "قسنطينة", "القصبة", "وهران", "تيمقاد", "برج", "مسجد", "معلم", "مدينة"]):
+        ref_bytes, _ = fetch_real_reference_image(clean_q)
+        if ref_bytes:
+            IMG_CACHE[raw_q] = ref_bytes
+            return Response(ref_bytes, mimetype="image/jpeg", headers=cors())
+
+    # 2. التوليد الفوري السريع (2 ثانية) عبر Cloudflare FLUX.1-schnell
     prompt = craft_visual_prompt(raw_q)
     if cid and ctok:
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
         try:
             r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": prompt}, timeout=9)
+                json={"prompt": prompt}, timeout=12)
             if r.status_code == 200:
                 ct = r.headers.get("Content-Type", "")
-                if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
+                if "image" in ct and len(r.content) > 4000:
+                    IMG_CACHE[raw_q] = r.content
+                    return Response(r.content, mimetype=ct, headers=cors())
                 b64 = (r.json().get("result") or {}).get("image")
-                if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-        except Exception: pass
+                if b64:
+                    img_data = base64.b64decode(b64)
+                    IMG_CACHE[raw_q] = img_data
+                    return Response(img_data, mimetype="image/jpeg", headers=cors())
+        except Exception:
+            pass
     return jsonify({"error": "img_busy"}), 503, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
