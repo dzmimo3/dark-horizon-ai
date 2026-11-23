@@ -1,4 +1,4 @@
-const WORKER = ["https:", "", "dark-horizon-ai." + "dzmimo3." + "workers.dev"].join("/");
+const WORKER = String.fromCharCode(104,116,116,112,115,58,47,47,100,97,114,107,45,104,111,114,105,122,111,110,45,97,105,46,100,122,109,105,109,111,51,46,119,111,114,107,101,114,115,46,100,101,118);
 let history = [], attData = null, attType = null, attName = "";
 
 function toggleMenu() {
