@@ -10,76 +10,83 @@ def cors():
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
     }
 
+def live_web_research(query):
+    """جلب معلومات حية من الويب والموسوعات لدعم الأبحاث"""
+    snippets = []
+    try:
+        r = requests.get("https://duckduckgo.com", params={"q": query, "format": "json", "no_html": 1}, timeout=8).json()
+        if r.get("AbstractText"):
+            snippets.append(f"- ملخص معرفي: {r['AbstractText']} (المصدر: {r.get('AbstractURL', 'Web')})")
+        for topic in (r.get("RelatedTopics") or [])[:3]:
+            if isinstance(topic, dict) and topic.get("Text"):
+                snippets.append(f"- {topic['Text']}")
+    except Exception:
+        pass
+    return "\n".join(snippets)
+
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON EMPIRE API ONLINE", "engines": ["Gemini-2.0", "Groq-Llama3", "Cloudflare-FLUX", "HF-FLUX-Dev", "Web-Search"]})
+    return jsonify({"status": "DARK HORIZON EMPIRE CORE ONLINE", "mode": "Autonomous Multi-Engine"})
 
-# 1. مسار البحث الحي في الإنترنت (بيانات حية مجانية)
-@app.route("/api/search", methods=["POST", "OPTIONS"])
-def api_search():
-    if request.method == "OPTIONS": return ("", 204, cors())
-    q = (request.get_json(silent=True) or {}).get("query", "")
-    try:
-        r = requests.get("https://duckduckgo.com", params={"q": q, "format": "json", "no_html": 1}, timeout=10).json()
-        ans = r.get("AbstractText") or (r.get("RelatedTopics") or [{}]).get("Text", "")
-        return jsonify({"result": ans or "تم البحث، جاري التحليل عبر الذكاء الاصطناعي."}), 200, cors()
-    except Exception:
-        return jsonify({"result": ""}), 200, cors()
-
-# 2. مسار الدردشة وتدوير الحصص اليومية (Groq -> Gemini 2.0 -> HF Qwen)
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def api_chat():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "")
     msgs = data.get("messages") or [{"role": "user", "content": prompt}]
+    last_q = msgs[-1]["content"] if msgs else prompt
 
-    # الحصة 1: Groq Llama-3.3-70B
+    # تفعيل البحث الحي تلقائياً عند طلب بحث أو معلومات حديثة
+    web_context = ""
+    if any(k in last_q for k in ["بحث", "ابحث", "دراسة", "مقال", "تقرير", "أخبار", "ما هو", "كيف يعمل", "تاريخ"]):
+        web_data = live_web_research(last_q)
+        if web_data:
+            web_context = f"\n\n[بيانات حية من الإنترنت للاستعانة بها وتوثيق البحث]:\n{web_data}"
+
+    sys_prompt = (
+        "أنت DARK HORIZON AI، نظام ذكاء اصطناعي فائق وشامل. "
+        "عند طلب بحث أو دراسة: اكتب بحثاً علمياً منظماً بعناوين رئيسية، مقدمة، تحليل عميق، نقاط دقيقة، وخاتمة. "
+        "عند طلب برمجة: اكتب كوداً كاملاً نظيفاً جاهزاً للتنفيذ. "
+        "تحدث بالعربية الفصحى السلسة والدقيقة." + web_context
+    )
+
+    final_msgs = [{"role": "system", "content": sys_prompt}] + [m for m in msgs if m.get("role") != "system"]
+
+    # 1. Groq Llama-3.3-70B (سرعة خارقة)
     gk = os.environ.get("GROQ_API_KEY", "")
     if gk:
         try:
             r = requests.post("https://groq.com",
                 headers={"Authorization": f"Bearer {gk}", "Content-Type": "application/json"},
-                json={"model": "llama-3.3-70b-versatile", "messages": msgs}, timeout=12)
+                json={"model": "llama-3.3-70b-versatile", "messages": final_msgs, "temperature": 0.6}, timeout=15)
             if r.status_code == 200:
                 ch = r.json().get("choices") or []
-                if ch: return jsonify({"reply": ch["message"]["content"]}), 200, cors()
-        except Exception: pass
+                if ch: return jsonify({"reply": ch[0]["message"]["content"]}), 200, cors()
+        except Exception:
+            pass
 
-    # الحصة 2: Google Gemini 2.0 Flash
+    # 2. Google Gemini 2.0 Flash (تحليل عميق وأبحاث طويلة)
     gem = os.environ.get("GEMINI_API_KEY", "")
     if gem:
         try:
-            ut = msgs[-1]["content"] if msgs else prompt
             url = "https:" + "//generativelanguage." + "://googleapis.com" + gem
-            r = requests.post(url, json={"contents": [{"parts": [{"text": ut}]}]}, timeout=12)
+            full_text = sys_prompt + "\n\nالسؤال:\n" + last_q
+            r = requests.post(url, json={"contents": [{"parts": [{"text": full_text}]}]}, timeout=15)
             if r.status_code == 200:
                 ca = r.json().get("candidates") or []
-                if ca: return jsonify({"reply": ca["content"]["parts"]["text"]}), 200, cors()
-        except Exception: pass
+                if ca: return jsonify({"reply": ca[0]["content"]["parts"][0]["text"]}), 200, cors()
+        except Exception:
+            pass
 
-    # الحصة 3: Hugging Face Qwen 2.5
-    hf = os.environ.get("HF_TOKEN", "")
-    if hf:
-        try:
-            url = "https:" + "//router." + "huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions"
-            r = requests.post(url, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
-                json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": msgs, "max_tokens": 800}, timeout=15)
-            if r.status_code == 200:
-                ch = r.json().get("choices") or []
-                if ch: return jsonify({"reply": ch["message"]["content"]}), 200, cors()
-        except Exception: pass
+    return jsonify({"error": "all_engines_busy"}), 503, cors()
 
-    return jsonify({"error": "all_chat_quotas_busy"}), 503, cors()
-
-# 3. مسار الصور النقية 8K وتدوير الحصص (Cloudflare FLUX -> HF FLUX.1-dev -> HF SD 3.5)
 @app.route("/api/image", methods=["POST", "OPTIONS"])
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "majestic Arabian horse in golden desert sunset, 8k photorealistic")
+    prompt = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
 
-    # الحصة 1: Cloudflare Workers AI FLUX-1-schnell
+    # 1. Cloudflare Workers AI FLUX-1-schnell (سريع ونقي 100%)
     cid, ctok = os.environ.get("CF_ACCOUNT_ID", ""), os.environ.get("CF_API_TOKEN", "")
     if cid and ctok:
         try:
@@ -89,21 +96,23 @@ def api_image():
             if r.status_code == 200:
                 b64 = r.json().get("result", {}).get("image")
                 if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-        except Exception: pass
+        except Exception:
+            pass
 
-    # الحصة 2 و 3: Hugging Face FLUX.1-dev & SD 3.5 Large
+    # 2. Hugging Face FLUX.1-dev (واقعية فوتوغرافية فائقة 1024x1024)
     hf = os.environ.get("HF_TOKEN", "")
     if hf:
-        for mdl in ["black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-3.5-large"]:
+        for mdl in ["black-forest-labs/FLUX.1-dev", "black-forest-labs/FLUX.1-schnell"]:
             try:
                 url = "https:" + "//router." + "huggingface.co/hf-inference/models/" + mdl
                 r = requests.post(url, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
                     json={"inputs": prompt}, timeout=25)
                 if r.status_code == 200 and len(r.content) > 8000:
                     return Response(r.content, mimetype="image/jpeg", headers=cors())
-            except Exception: pass
+            except Exception:
+                pass
 
-    return jsonify({"error": "all_image_quotas_busy"}), 503, cors()
+    return jsonify({"error": "image_engines_busy"}), 503, cors()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
