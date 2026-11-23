@@ -125,11 +125,15 @@ def api_chat():
                     reply = pt.get("text", "")
         except Exception: pass
 
-    if not reply:
+    hf = os.environ.get("HF_TOKEN", "").strip()
+    if hf and not reply:
         try:
-            import g4f
-            resp = g4f.ChatCompletion.create(model=g4f.models.default, messages=final_msgs)
-            if resp and len(str(resp)) > 2: reply = str(resp)
+            u = bytes.fromhex("68747470733a2f2f726f757465722e68756767696e67666163652e636f2f68662d696e666572656e63652f6d6f64656c732f5177656e2f5177656e322e352d3732422d496e7374727563742f76312f636861742f636f6d706c6574696f6e73").decode()
+            r = requests.post(u, headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
+                json={"model": "Qwen/Qwen2.5-72B-Instruct", "messages": final_msgs, "max_tokens": 900}, timeout=15)
+            if r.status_code == 200:
+                ch = next(iter(r.json().get("choices") or []), None)
+                if ch: reply = ch.get("message", {}).get("content", "")
         except Exception: pass
 
     if reply:
