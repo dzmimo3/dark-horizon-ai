@@ -145,44 +145,40 @@ def api_image():
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece")
     prompt = craft_visual_prompt(raw_q)
+    errs = []
 
+    # 1. Hugging Face FLUX.1-schnell (سريع ومجاني بمفتاح HF_TOKEN)
+    hf = os.environ.get("HF_TOKEN", "").strip()
+    if hf:
+        for hf_mdl in ["black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0"]:
+            try:
+                from huggingface_hub import InferenceClient
+                pil_img = InferenceClient(token=hf).text_to_image(prompt, model=hf_mdl)
+                buf = io.BytesIO()
+                pil_img.save(buf, format="JPEG", quality=92)
+                return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
+            except Exception as e:
+                errs.append(f"HF:{str(e)[:60]}")
+
+    # 2. Cloudflare Workers AI
     cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl
-        for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0"]:
+        for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm"]:
             try:
                 r = requests.post(f"{cf_base}{cid}/ai/run/{mdl}",
                     headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                    json={"prompt": prompt}, timeout=11)
+                    json={"prompt": prompt}, timeout=12)
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
-                    if "image" in ct and len(r.content) > 5000: return Response(r.content, mimetype=ct, headers=cors())
+                    if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
                     b64 = (r.json().get("result") or {}).get("image")
                     if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-            except Exception: pass
-        hf = os.environ.get("HF_TOKEN", "").strip()
-    if hf:
-        try:
-            from huggingface_hub import InferenceClient
-            ic = InferenceClient(token=hf)
-            pil_img = ic.text_to_image(prompt, model="black-forest-labs/FLUX.1-schnell")
-            buf = io.BytesIO()
-            pil_img.save(buf, format="JPEG", quality=92)
-            return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
-        except Exception as e:
-            return jsonify({"error": "img_busy", "cf": bool(cid and ctok), "hf_err": str(e)[:120]}), 503, cors()
-        hf = os.environ.get("HF_TOKEN", "").strip()
-    if hf:
-        try:
-            from huggingface_hub import InferenceClient
-            ic = InferenceClient(token=hf)
-            pil_img = ic.text_to_image(prompt, model="black-forest-labs/FLUX.1-schnell")
-            buf = io.BytesIO()
-            pil_img.save(buf, format="JPEG", quality=92)
-            return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
-        except Exception as e:
-            return jsonify({"error": "img_busy", "cf": bool(cid and ctok), "hf_err": str(e)[:120]}), 503, cors()
-    return jsonify({"error": "img_busy", "cf_set": bool(cid and ctok)}), 503, cors()
+                errs.append(f"CF:{r.status_code}")
+            except Exception as e:
+                errs.append(f"CFE:{str(e)[:50]}")
+
+    return jsonify({"error": "img_busy", "details": errs}), 503, cors()
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
 def api_video():
