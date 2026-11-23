@@ -200,6 +200,17 @@ def api_image():
             return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
         except Exception as e:
             return jsonify({"error": "img_busy", "cf": bool(cid and ctok), "hf_err": str(e)[:120]}), 503, cors()
+        hf = os.environ.get("HF_TOKEN", "").strip()
+    if hf:
+        try:
+            from huggingface_hub import InferenceClient
+            ic = InferenceClient(token=hf)
+            pil_img = ic.text_to_image(prompt, model="black-forest-labs/FLUX.1-schnell")
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=92)
+            return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
+        except Exception as e:
+            return jsonify({"error": "img_busy", "cf": bool(cid and ctok), "hf_err": str(e)[:120]}), 503, cors()
     return jsonify({"error": "img_busy", "cf_set": bool(cid and ctok)}), 503, cors()
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
