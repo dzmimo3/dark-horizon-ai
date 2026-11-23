@@ -145,62 +145,37 @@ def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
-    seed = data.get("seed") or random.randint(1, 9999999)
     errs = []
 
-    # 1. Cloudflare Workers AI FLUX
-    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    # أسرع محركات Cloudflare Workers AI المجانية (1.5 - 3 ثوانٍ)
+    cid = os.environ.get("CF_ACCOUNT_ID", "").strip()
+    ctok = os.environ.get("CF_API_TOKEN", "").strip()
     if cid and ctok:
-        try:
-            cf_base = bytes.fromhex("68747470733a2f2f6170692e636c6f7564666c6172652e636f6d2f636c69656e742f76342f6163636f756e74732f").decode()
-            r = requests.post(cf_base + cid + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
-                headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": prompt, "num_steps": 6}, timeout=18)
-            if r.status_code == 200:
-                b64 = r.json().get("result", {}).get("image")
-                if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
-            errs.append(f"CF:{r.status_code}")
-        except Exception as e: errs.append(f"CF_E:{e}")
-
-    # 2. Hugging Face Router المباشر (FLUX.1-schnell & SDXL - مجاني بدون موافقة ترخيص)
-    hf = os.environ.get("HF_TOKEN", "").strip()
-    if hf:
-        hf_base = bytes.fromhex("68747470733a2f2f726f757465722e68756767696e67666163652e636f2f68662d696e666572656e63652f6d6f64656c732f").decode()
-        for mdl in ["black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-xl-base-1.0", "black-forest-labs/FLUX.1-dev"]:
+        cf_base = bytes.fromhex("68747470733a2f2f6170692e636c6f7564666c6172652e636f6d2f636c69656e742f76342f6163636f756e74732f").decode()
+        models = [
+            "@cf/lykon/dreamshaper-8-lcm",
+            "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+            "@cf/black-forest-labs/flux-1-schnell"
+        ]
+        for mdl in models:
             try:
-                r = requests.post(hf_base + mdl,
-                    headers={"Authorization": f"Bearer {hf}", "Content-Type": "application/json"},
-                    json={"inputs": f"{prompt}, seed {seed}"}, timeout=25)
-                if r.status_code == 200 and len(r.content) > 8000:
-                    return Response(r.content, mimetype="image/jpeg", headers=cors())
+                r = requests.post(
+                    f"{cf_base}{cid}/ai/run/{mdl}",
+                    headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                    json={"prompt": prompt},
+                    timeout=15
+                )
+                if r.status_code == 200:
+                    ct = r.headers.get("Content-Type", "")
+                    if "image" in ct and len(r.content) > 5000:
+                        return Response(r.content, mimetype=ct, headers=cors())
+                    j = r.json()
+                    b64 = (j.get("result") or {}).get("image")
+                    if b64:
+                        return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
                 errs.append(f"{mdl.split('/')[-1]}:{r.status_code}")
-            except Exception as e: errs.append(f"HF_E:{e}")
-
-    # 2. AI Horde GPU Cluster (مجاني غير محدود - Juggernaut XL / EpicRealism)
-    try:
-        hb = bytes.fromhex("68747470733a2f2f737461626c65686f7264652e6e65742f6170692f7632").decode()
-        hdrs = {"Content-Type": "application/json", "apikey": "0000000000", "Client-Agent": "DarkHorizon:5.0:user"}
-        r1 = requests.post(hb + "/generate/async", headers=hdrs, json={
-            "prompt": prompt + " ### blurry, watermark, ugly, low quality",
-            "params": {"sampler_name": "k_euler_a", "cfg_scale": 7.5, "width": 512, "height": 512, "steps": 20, "n": 1},
-            "models": ["Juggernaut XL", "EpicRealism", "AlbedoBase XL (SDXL)"]
-        }, timeout=12)
-        if r1.status_code in (200, 202):
-            tid = r1.json().get("id")
-            import time
-            for _ in range(15):
-                time.sleep(2)
-                chk = requests.get(f"{hb}/generate/check/{tid}", headers=hdrs, timeout=8).json()
-                if chk.get("done"):
-                    st = requests.get(f"{hb}/generate/status/{tid}", headers=hdrs, timeout=10).json()
-                    gen = next(iter(st.get("generations") or []), None)
-                    if gen and gen.get("img"):
-                        img_data = requests.get(gen["img"], timeout=15).content if gen["img"].startswith("http") else base64.b64decode(gen["img"])
-                        if len(img_data) > 5000:
-                            return Response(img_data, mimetype="image/jpeg", headers=cors())
-                    break
-    except Exception as e:
-        errs.append(f"Horde_E:{e}")
+            except Exception as e:
+                errs.append(f"CF_E:{e}")
 
     return jsonify({"error": "img_busy", "details": errs}), 503, cors()
 
