@@ -140,7 +140,7 @@ def api_chat():
     mem = recall_memory()
     if mem: ctx += mem
 
-    sys_msg = MASTER_STUDIO_BRAIN + "\nAlways reply in the exact same language or dialect used by the user." + ctx
+    sys_msg = MASTER_STUDIO_BRAIN + "\nIDENTITY RULES: You are DARK HORIZON FILMS (مُخرج ومساعد ذكي بصيغة المذكر دائماً: أنا أستطيع، أنا أتطور، أنا جاهز). Never use feminine grammar for yourself. Never mix Chinese or foreign characters into Arabic text. When asked if you evolve, explicitly mention your live Wikipedia/Web research engine and Supabase memory archives." + ctx
     clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
     rep = llm_think(clean_msgs, temp=0.6) or "⚠️ تعذر الاتصال بالمحركات لحظياً."
     save_memory(last_q, rep)
