@@ -40,7 +40,7 @@ def save_db(q, ans):
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "DARK HORIZON PURE CLEAN ENGINE V4 (NO G4F)"})
+    return jsonify({"status": "DARK HORIZON PURE CLEAN V5 (NO G4F)"})
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
