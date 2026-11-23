@@ -73,7 +73,13 @@ def api_chat():
         found = web_search(last_q)
         if found: ctx = f"\n\n[معلومات حية من البحث]:\n{found}"
 
-    sys_msg = "أنت DARK HORIZON AI، مساعد ذكي شامل للبحث العلمي والبرمجة. أجب بالعربية الفصحى بدقة ووضوح." + ctx
+    sys_msg = (
+        "You are DARK HORIZON AI PRO, a universal polyglot AI assistant. "
+        "Understand and respond fluently in ANY world language (Arabic, English, French, Spanish, etc.), "
+        "ANY regional dialect (Algerian Darja, Moroccan, Tunisian, Egyptian, Gulf, Levantine), "
+        "and ALL programming languages (Python, JS, C++, Rust, HTML/CSS, SQL, Bash, etc.). "
+        "Always reply in the exact same language or dialect the user used, with high precision." + ctx
+    )
     clean_msgs = [{"role": "system", "content": sys_msg}] + [m for m in msgs if m.get("role") != "system"]
     sl = chr(47)
     errs = []
@@ -147,7 +153,22 @@ def api_chat():
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    prompt = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
+    raw_p = data.get("prompt", "cinematic masterpiece, 8k photorealistic")
+    prompt = raw_p
+    gk_tr = os.environ.get("GROQ_API_KEY", "").strip()
+    if gk_tr and any(ord(c) > 127 for c in raw_p):
+        try:
+            sl_t = chr(47)
+            u_tr = "https:" + sl_t + sl_t + "api." + "groq.com" + sl_t + "openai" + sl_t + "v1" + sl_t + "chat" + sl_t + "completions"
+            tr_r = requests.post(u_tr, headers={"Authorization": f"Bearer {gk_tr}", "Content-Type": "application/json"},
+                json={"model": "llama-3.3-70b-versatile", "messages": [
+                    {"role": "system", "content": "Translate the user request from any language or dialect (like Algerian, Egyptian, Arabic, French) into a clean, vivid English image generation prompt (max 20 words, photorealistic, no text/watermarks). Output ONLY the English prompt."},
+                    {"role": "user", "content": raw_p}
+                ], "temperature": 0.3}, timeout=8)
+            if tr_r.status_code == 200:
+                tr_txt = (next(iter(tr_r.json().get("choices") or []), {}).get("message") or {}).get("content", "").strip()
+                if len(tr_txt) > 4: prompt = tr_txt + ", ultra detailed, cinematic lighting, no text"
+        except Exception: pass
     errs = []
 
     # أسرع محركات Cloudflare Workers AI المجانية (1.5 - 3 ثوانٍ)
