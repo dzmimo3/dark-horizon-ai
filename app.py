@@ -73,6 +73,28 @@ def api_chat():
             errs.append(f"or:{r.status_code}")
         except Exception as e: errs.append(f"or_e:{e}")
 
+    # 3. OpenRouter Free Auto-Router (يختار تلقائياً من مئات النماذج المجانية النشطة)
+    ork = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if ork:
+        for free_mdl in ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free", "google/gemini-2.0-flash-exp:free"]:
+            try:
+                u = bytes.fromhex("68747470733a2f2f6f70656e726f757465722e61692f6170692f76312f636861742f636f6d706c6574696f6e73").decode()
+                r = requests.post(u, headers={"Authorization": f"Bearer {ork}", "Content-Type": "application/json"},
+                    json={"model": free_mdl, "messages": msgs}, timeout=15)
+                if r.status_code == 200:
+                    ch = next(iter(r.json().get("choices") or []), None)
+                    if ch: return jsonify({"reply": ch.get("message", {}).get("content", ""), "engine": free_mdl}), 200, cors()
+            except Exception: pass
+
+    # 4. بوابة g4f (GPT4Free) - عشرات المزودين المجانيين بدون مفتاح API
+    try:
+        import g4f
+        resp = g4f.ChatCompletion.create(model=g4f.models.default, messages=msgs)
+        if resp and len(str(resp)) > 2:
+            return jsonify({"reply": str(resp), "engine": "g4f-free-pool"}), 200, cors()
+    except Exception as e:
+        errs.append(f"g4f_e:{e}")
+
     return jsonify({"error": "chat_busy", "details": errs}), 503, cors()
 
 @app.route("/api/image", methods=["POST", "OPTIONS"])
