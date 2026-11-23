@@ -39,7 +39,7 @@ def api_chat():
     if gem_k:
         try:
             u_txt = msgs[-1]["content"] if msgs else prompt
-            r = requests.post(f"https://googleapis.com{gem_k}",
+            r = requests.post(f"https:" + "//generativelanguage." + "://googleapis.com" + gem_k,
                 json={"contents": [{"parts": [{"text": u_txt}]}]}, timeout=12)
             if r.status_code == 200:
                 ca = r.json().get("candidates") or []
@@ -64,7 +64,7 @@ def api_image():
     if cf_id and cf_tok:
         try:
             r = requests.post(
-                f"https://cloudflare.com{cf_id}/ai/run/@cf/black-forest-labs/flux-1-schnell",
+                f"https:" + "//api." + "://cloudflare.com" + cf_id + "/ai/run/@cf/black-forest-labs/flux-1-schnell",
                 headers={"Authorization": f"Bearer {cf_tok}", "Content-Type": "application/json"},
                 json={"prompt": prompt, "steps": 6}, timeout=20
             )
@@ -82,7 +82,7 @@ def api_image():
         for mdl in ["black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.1-dev"]:
             try:
                 r = requests.post(
-                    f"https://huggingface.co{mdl}",
+                    f"https:" + "//router." + "huggingface.co/hf-inference/models/" + mdl,
                     headers={"Authorization": f"Bearer {hf_tok}", "Content-Type": "application/json"},
                     json={"inputs": prompt}, timeout=25
                 )
@@ -96,13 +96,13 @@ def api_image():
     fal_k = os.environ.get("FAL_KEY", "")
     if fal_k:
         try:
-            r = requests.post("https://fal.run",
+            r = requests.post("https:" + "//fal." + "run/fal-ai/flux/schnell",
                 headers={"Authorization": f"Key {fal_k}", "Content-Type": "application/json"},
                 json={"prompt": prompt, "image_size": "square_hd"}, timeout=20)
             if r.status_code == 200:
                 imgs = r.json().get("images") or []
-                if imgs and imgs.get("url"):
-                    img_b = requests.get(imgs["url"], timeout=15).content
+                if imgs and imgs[0].get("url"):
+                    img_b = requests.get(imgs[0]["url"], timeout=15).content
                     return Response(img_b, mimetype="image/jpeg", headers=cors())
             errors.append(f"FAL:{r.status_code}")
         except Exception as e:
