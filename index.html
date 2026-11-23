@@ -1,312 +1,74 @@
-<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#0b0c0e"><link rel="manifest" href="./manifest.json"><title>DARK HORIZON PRO</title>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#060913">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://workers.dev" crossorigin>
+<script src="https://puter.com"></script>
+<title>DARK HORIZON AI ULTRA ✦</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:radial-gradient(circle at top,#181b22 0%,#0b0c0e 100%);color:#f1f3f4;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;height:100vh}
-header{padding:12px 16px;background:rgba(20,22,27,0.95);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08)}
-.brand{font-weight:800;font-size:15px;background:linear-gradient(90deg,#a8c7fa,#d2e3fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.top-btns{display:flex;gap:6px}
-.top-btn{background:rgba(255,255,255,0.08);color:#e3e3e3;border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
-.studio-bar{display:flex;gap:8px;padding:8px 14px;background:#12141a;border-bottom:1px solid rgba(255,255,255,0.06);overflow-x:auto;font-size:12px}
-.studio-bar select{background:#1c1f26;color:#a8c7fa;border:1px solid rgba(168,199,250,0.25);border-radius:12px;padding:5px 10px;font-size:12px;outline:none}
-#chat{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:14px}
-.msg{max-width:88%;padding:13px 16px;border-radius:20px;line-height:1.65;font-size:15px;word-wrap:break-word;box-shadow:0 4px 16px rgba(0,0,0,0.25)}
-.USER{align-self:flex-start;background:linear-gradient(135deg,#262932,#1e2028);border:1px solid rgba(255,255,255,0.08);border-bottom-right-radius:6px}
-.AI{align-self:flex-end;background:rgba(24,26,32,0.94);border:1px solid rgba(168,199,250,0.16);border-bottom-left-radius:6px;width:92%}
-.dock{position:relative;padding:8px 14px 14px;background:linear-gradient(to top,#0b0c0e 78%,transparent)}
-.plus-menu{display:none;position:absolute;bottom:76px;right:16px;background:#1c1f26;border:1px solid rgba(168,199,250,0.25);border-radius:18px;padding:8px;width:255px;box-shadow:0 12px 32px rgba(0,0,0,0.65);z-index:99;flex-direction:column;gap:4px}
-.plus-menu.show{display:flex}
-.pm-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:transparent;border:none;color:#f1f3f4;font-size:14px;cursor:pointer;text-align:right;width:100%}
-.pm-item:active{background:rgba(168,199,250,0.2)}
-#preview-bar{display:none;align-items:center;gap:10px;background:#1c1f26;padding:8px 14px;border-radius:16px;margin-bottom:8px;border:1px solid rgba(168,199,250,0.25);font-size:13px}
-.bar{display:flex;align-items:center;gap:8px;background:#181a20;border:1px solid rgba(255,255,255,0.16);border-radius:30px;padding:6px 10px 6px 6px}
-.plus{width:40px;height:40px;border-radius:50%;border:none;background:rgba(168,199,250,0.16);color:#a8c7fa;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold}
-input[type=text]{flex:1;background:transparent;border:none;color:#fff;font-size:15px;padding:8px 6px;outline:none}
-.send{width:44px;height:44px;border-radius:50%;border:none;background:linear-gradient(135deg,#a8c7fa,#669df6);color:#041e49;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center}
-img,video{max-width:100%;border-radius:14px;margin-top:12px;display:block}
-.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.act{background:rgba(168,199,250,0.14);color:#a8c7fa;border:1px solid rgba(168,199,250,0.28);padding:7px 14px;border-radius:14px;text-decoration:none;font-size:12px;font-weight:600;cursor:pointer}
-</style></head>
+:root{--bg:#060913;--surface:rgba(15,23,42,.82);--border:rgba(148,163,184,.2);--primary:#38bdf8;--accent:#818cf8;--text:#f8fafc;--muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:radial-gradient(circle at 15% 10%,rgba(56,189,248,.15),transparent 40%),radial-gradient(circle at 85% 90%,rgba(129,140,248,.15),transparent 40%),var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+header{padding:14px 18px;background:rgba(6,9,19,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.dot{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+.new-btn{background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.35);padding:7px 14px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer}
+#chat{flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:16px}
+.welcome{margin:auto;text-align:center;max-width:350px;padding:24px 18px;background:var(--surface);border:1px solid var(--border);border-radius:24px}
+.welcome h2{font-size:20px;margin-bottom:8px}.welcome p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{background:rgba(30,41,59,.9);border:1px solid var(--border);color:#e2e8f0;padding:8px 13px;border-radius:14px;font-size:12.5px;cursor:pointer}
+.msg{max-width:86%;padding:13px 16px;border-radius:20px;line-height:1.65;font-size:15px;word-wrap:break-word}
+.user{align-self:flex-start;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-bottom-right-radius:6px}
+.bot{align-self:flex-end;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:6px}
+.bot img,.user img,.bot video{width:100%;max-width:340px;border-radius:16px;margin-top:10px;display:block}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.act-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(56,189,248,.14);color:var(--primary);border:1px solid rgba(56,189,248,.3);border-radius:12px;text-decoration:none;font-size:13px;font-weight:600;cursor:pointer}
+#previewBar{display:none;margin:0 12px 8px;padding:9px 14px;background:#0f172a;border:1px solid rgba(56,189,248,.35);border-radius:14px;align-items:center;justify-content:space-between;font-size:13px;color:var(--primary)}
+.dock{padding:10px 12px 14px;background:rgba(6,9,19,.92);border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;position:relative}
+.icon-btn{width:46px;height:46px;border-radius:16px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+#sendBtn{background:linear-gradient(135deg,#38bdf8,#818cf8);color:#060913}
+#plusBtn{background:rgba(30,41,59,.9);color:var(--primary);border:1px solid var(--border)}
+.input-wrap{flex:1;background:rgba(15,23,42,.95);border:1px solid var(--border);border-radius:18px;padding:0 14px}
+#q{width:100%;background:transparent;border:none;color:#fff;padding:12px 0;font-size:15px;outline:none}
+#plusMenu{display:none;position:absolute;bottom:72px;left:12px;width:240px;background:#0f172a;border:1px solid var(--border);border-radius:18px;padding:8px;flex-direction:column;gap:4px;z-index:50}
+.pm-item{background:transparent;border:none;color:#f1f5f9;padding:11px 13px;border-radius:12px;font-size:14px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:right}
+.loader{display:inline-flex;gap:5px;padding:4px 0}.loader span{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:b 1.2s infinite}.loader span:nth-child(2){animation-delay:.2s}.loader span:nth-child(3){animation-delay:.4s}
+@keyframes b{0%,80%,100%{transform:scale(.4);opacity:.4}40%{transform:scale(1);opacity:1}}
+</style>
+</head>
 <body>
-<header><div class="brand">✦ DARK HORIZON PRO</div><div class="top-btns"><button id="btnInstall" type="button" class="top-btn" style="display:none">📲 تثبيت التطبيق</button><button id="btnNew" type="button" class="top-btn">+ جديد</button></div></header>
-<div class="studio-bar">
-  <select id="vidDur"><option value="5">⏱️ فيديو: 5 ثوانٍ</option><option value="10" selected>⏱️ فيديو: 10 ثوانٍ</option><option value="15">⏱️ فيديو: 15 ثانية</option><option value="20">⏱️ فيديو: 20 ثانية</option><option value="30">⏱️ فيديو: 30 ثانية</option></select>
-  <select id="aspectSel"><option value="1:1">📐 مربع 1:1</option><option value="16:9">🖥️ يوتيوب 16:9</option><option value="9:16">📱 ريلز/تيك توك 9:16</option></select>
-</div>
-<div id="chat"></div>
-<div class="dock">
-  <div id="plusMenu" class="plus-menu">
-    <button type="button" class="pm-item" data-act="img">🖼️ إضافة صورة</button>
-    <button type="button" class="pm-item" data-act="doc">📄 إضافة ملف نصي</button>
-    <button type="button" class="pm-item" data-act="gen-img">🎨 تصميم صورة 8K فورية</button>
-    <button type="button" class="pm-item" data-act="gen-vid">🎥 إنتاج فيديو بالمدة المختارة</button>
-    <button type="button" class="pm-item" data-act="i2v">🎞️ تحريك صورة إلى فيديو (Image-to-Video)</button>
+<header>
+  <div class="brand"><span class="dot"></span> DARK HORIZON ULTRA ✦</div>
+  <button type="button" class="new-btn" id="newBtn">+ محادثة جديدة</button>
+</header>
+<div id="chat">
+  <div class="welcome" id="welcomeBox">
+    <h2>DARK HORIZON AI ULTRA</h2>
+    <p>مدعوم بأقوى محركات FLUX.2 Pro و Google Imagen 4 Ultra و GPT Image 2.6 بدون علامات مائية.</p>
+    <div class="chips">
+      <div class="chip" data-fill="صمم لي صورة 8K واقعية لـ ">🎨 صورة 8K واقعية</div>
+      <div class="chip" data-fill="أنشئ مشهد أنمي سينمائي لـ ">🎬 مشهد أنمي متحرك</div>
+      <div class="chip" data-fill="اكتب لي قصة قصيرة عن ">✍️ كتابة قصة</div>
+    </div>
   </div>
-  <div id="preview-bar"><span id="prev-name">📎 مرفق</span><button id="btnClear" type="button" style="margin-right:auto;background:none;border:none;color:#f28b82;font-weight:bold">✖ إلغاء</button></div>
-  <input type="file" id="fileInp" style="display:none">
-  <div class="bar"><button id="btnPlus" type="button" class="plus">+</button><input type="text" id="q" placeholder="اكتب رسالتك أو اطلب صورة أو فيديو..."><button id="btnSend" type="button" class="send">➤</button></div>
 </div>
-<script>
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').catch(function(){}); }
-var deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', function(e){
-  e.preventDefault(); deferredPrompt = e;
-  var bi = document.getElementById('btnInstall'); bi.style.display = 'inline-block';
-  bi.addEventListener('click', function(){ if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt = null; bi.style.display = 'none'; } });
-});
-(function(){
-  var hist = [], attData = null, attType = null, attName = '';
-  try{ hist = JSON.parse(localStorage.getItem('dh_hist') || '[]'); }catch(e){ hist = []; }
-  var chat = document.getElementById('chat'), q = document.getElementById('q'), menu = document.getElementById('plusMenu'), fileInp = document.getElementById('fileInp'), prevBar = document.getElementById('preview-bar'), prevName = document.getElementById('prev-name');
-  var sl = String.fromCharCode(47), tok = 'Bearer sk_gXvcVz7Zs6flGPFymOabkTHL5CvArpz3';
-  var renderUrl = 'https:' + sl + sl + '://onrender.com';
-  function pingServer(){ try{ fetch(renderUrl + sl + 'health', {mode:'no-cors'}).catch(function(){}); }catch(e){} }
-  pingServer(); setInterval(pingServer, 240000);
-
-  function saveHist(){ try{ localStorage.setItem('dh_hist', JSON.stringify(hist.slice(-20))); }catch(e){} }
-  document.getElementById('btnNew').addEventListener('click', function(){ hist = []; saveHist(); chat.innerHTML = ''; });
-  document.getElementById('btnPlus').addEventListener('click', function(e){ e.stopPropagation(); menu.classList.toggle('show'); });
-  document.addEventListener('click', function(e){ if(!menu.contains(e.target) && e.target.id !== 'btnPlus') menu.classList.remove('show'); });
-  document.getElementById('btnClear').addEventListener('click', function(){ attData = null; attType = null; attName = ''; prevBar.style.display = 'none'; });
-
-  menu.querySelectorAll('.pm-item').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var act = btn.getAttribute('data-act'); menu.classList.remove('show');
-      if(act === 'img'){ fileInp.accept = 'image/*'; attType = 'img'; fileInp.click(); }
-      else if(act === 'doc'){ fileInp.accept = '.txt,.py,.json,.csv,.md,.html'; attType = 'doc'; fileInp.click(); }
-      else if(act === 'gen-img'){ q.value = 'صمم لي صورة سينمائية فائقة الواقعية بدقة 8K لـ '; q.focus(); }
-      else if(act === 'gen-vid'){ q.value = 'صمم لي فيديو سينمائي لـ '; q.focus(); }
-      else if(act === 'i2v'){ fileInp.accept = 'image/*'; attType = 'img'; q.value = 'حرك هذه الصورة إلى فيديو سينمائي واقعي'; fileInp.click(); }
-    });
-  });
-
-  fileInp.addEventListener('change', function(){
-    var f = fileInp.files.item(0); if(!f) return; attName = f.name;
-    var r = new FileReader();
-    r.onload = function(ev){ attData = ev.target.result; prevName.textContent = '📎 ' + attName; prevBar.style.display = 'flex'; };
-    if(attType === 'doc') r.readAsText(f); else r.readAsDataURL(f);
-  });
-
-  function getDims(){
-    var asp = document.getElementById('aspectSel').value;
-    if(asp === '16:9') return {w: 1024, h: 576};
-    if(asp === '9:16') return {w: 576, h: 1024};
-    return {w: 768, h: 768};
-  }
-
-  function addMsg(role, text, media){
-    var d = document.createElement('div'); d.className = 'msg ' + role;
-    d.innerHTML = String(text).replace(/\n/g, '<br>');
-    if(media && media.user_img){ var uim = document.createElement('img'); uim.src = media.user_img; uim.style.maxHeight = '220px'; d.appendChild(uim); }
-    if(media && media.img){
-      var im = document.createElement('img'); im.src = media.img; d.appendChild(im);
-      var ac = document.createElement('div'); ac.className = 'actions';
-      var dl = document.createElement('a'); dl.className = 'act'; dl.href = media.img; dl.download = 'DarkHorizon_8K.jpg'; dl.target = '_blank'; dl.textContent = '⬇️ تحميل الصورة';
-      ac.appendChild(dl); d.appendChild(ac);
-    }
-    if(media && media.vid){
-      var vd = document.createElement('video'); vd.src = media.vid; vd.controls = true; vd.autoplay = true; vd.loop = true; vd.playsInline = true; d.appendChild(vd);
-      var acv = document.createElement('div'); acv.className = 'actions';
-      var dlv = document.createElement('a'); dlv.className = 'act'; dlv.href = media.vid; dlv.download = 'DarkHorizon_Studio.webm'; dlv.target = '_blank'; dlv.textContent = '⬇️ تحميل الفيديو';
-      acv.appendChild(dlv); d.appendChild(acv);
-    }
-    if(role === 'AI' && (!media || (!media.img && !media.vid))){
-      var ac2 = document.createElement('div'); ac2.className = 'actions';
-      var cp = document.createElement('button'); cp.type = 'button'; cp.className = 'act'; cp.textContent = '📋 نسخ';
-      cp.addEventListener('click', function(){ navigator.clipboard.writeText(text); cp.textContent = '✅ تم النسخ'; setTimeout(function(){ cp.textContent = '📋 نسخ'; }, 1500); });
-      ac2.appendChild(cp); d.appendChild(ac2);
-    }
-    chat.appendChild(d); chat.scrollTop = chat.scrollHeight; return d;
-  }
-  hist.forEach(function(m){ addMsg(m.role === 'user' ? 'USER' : 'AI', m.content); });
-
-  async function askAI(msgs, imgData){
-    var wBase = 'https:' + sl + sl + 'hidden-bread-95eb.dz30007000.workers.dev';
-    try{
-      var r = await fetch(wBase + sl + 'chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({messages: msgs.slice(-8), image: imgData || null})
-      });
-      if(r.ok){
-        var d = await r.json();
-        if(d && d.reply) return d.reply;
-      }
-    }catch(e){}
-    var sys = {role:'system', content:'أنت DARK HORIZON PRO، مساعد ذكاء اصطناعي خبير تتحدث بالعربية والجزائرية والفرنسية والإنجليزية بطلاقة.'};
-    var r2 = await fetch('https:' + sl + sl + 'gen.pollinations.ai' + sl + 'v1' + sl + 'chat' + sl + 'completions', {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': tok},
-      body: JSON.stringify({model: 'openai', messages: [sys].concat(msgs.slice(-8))})
-    });
-    if(r2.ok){ var d2 = await r2.json(); var c2 = d2.choices && d2.choices.shift(); if(c2 && c2.message && c2.message.content) return c2.message.content; }
-    throw new Error('تعذر الاتصال بالمحركات');
-  }
-
-  async function doSend(){
-    var t = q.value.trim(); if(!t && !attData) return; q.value = '';
-    var cData = attData, cType = attType, cName = attName; attData = null; attType = null; attName = ''; prevBar.style.display = 'none';
-    addMsg('USER', t || ('📎 ملف: ' + cName), cType === 'img' ? {user_img: cData} : null);
-    var wait = addMsg('AI', '⏳ جاري التنفيذ...'); var low = t.toLowerCase(), dims = getDims();
-
-    try{
-      if(low.indexOf('فيديو') !== -1 || low.indexOf('مقطع') !== -1 || low.indexOf('تحريك') !== -1 || low.indexOf('video') !== -1){
-        var asp = document.getElementById('aspectSel') ? document.getElementById('aspectSel').value : '16:9';
-        var matchSec = t.match(/(\d+)\s*(ثاني|ثوان|sec|s)/i);
-        var targetSec = matchSec ? Math.min(Math.max(parseInt(matchSec, 10), 4), 45) : (document.getElementById('vidDur') ? parseInt(document.getElementById('vidDur').value, 10) : 10);
-        var cleanV = t.replace(/صمم لي فيديو|صمم فيديو|اصنع فيديو|انشئ فيديو|حول صورة إلى فيديو|حرك هذه الصورة|فيديو|مقطع|\d+\s*(ثاني|ثوان|sec|s)/gi, '').trim();
-        var enRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'Translate into a short realistic modest English cinematic action scene (10 words max, ONLY English): ' + cleanV}]) : 'scenic desert sunset with Arabian horses running, realistic cinematic';
-        var enBase = enRaw.split('\n').pop().replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 130) || 'cinematic realistic motion scene';
-
-        wait.innerHTML = '🎬 جاري الفحص السحابي وتجهيز محرك الموشن جرافيك...';
-        var vr = await fetch(EDGE_URL + sl + 'video', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: enBase, aspect: asp, image_url: (cType === 'img' ? cData : null)}) }).catch(function(){ return {ok:false}; });
-        var vData = vr.ok ? await vr.json().catch(function(){ return {}; }) : {};
-
-        if(vr.ok && vData.video_url){
-          wait.remove(); addMsg('AI', '🎬 <b>تم إنتاج الفيديو السينمائي بحركة واقعية:</b>', {vid: vData.video_url});
-        } else {
-          var sceneCount = cType === 'img' ? 1 : Math.min(Math.max(Math.ceil(targetSec / 3), 3), 8);
-          wait.innerHTML = '🎥 جاري توليد المشاهد والسيناريو المتحرك (' + targetSec + ' ثوانٍ)...';
-
-          var capRaw = cleanV.length > 2 ? await askAI([{role:'user', content:'اكتب ' + sceneCount + ' جمل عربية قصيرة جداً ومؤثرة (كل جملة 5 كلمات كحد أقصى في سطر مستقل بدون أرقام) تناسب فيديو عن: ' + cleanV}]) : 'لحظات سينمائية لا تُنسى\nإبداع يتجاوز حدود الخيال\nرؤية فنية متكاملة';
-          var captions = capRaw.split('\n').map(function(l){ return l.replace(/[*#-0-9.]/g,'').trim(); }).filter(Boolean);
-          if(captions.length === 0) captions = ['DARK HORIZON STUDIO'];
-
-          var shotStyles = [', wide establishing shot, cinematic lighting', ', dynamic medium tracking shot, golden hour', ', dramatic low angle shot, rich colors', ', detailed close-up shot, 8k', ', aerial panoramic view, atmospheric'];
-          var fUrls = cType === 'img' ? [cData] : await Promise.all(Array.from({length: sceneCount}, function(_, idx){
-            var pr = enBase + shotStyles[idx % shotStyles.length];
-            var u = 'https:' + sl + sl + 'gen.pollinations.ai' + sl + 'image' + sl + encodeURIComponent(pr) + '?width=' + dims.w + '&height=' + dims.h + '&model=flux&nologo=true&seed=' + (9400 + idx*41 + Math.floor(Math.random()*500));
-            return fetch(u, {headers: {'Authorization': POL_TOK}}).then(function(r){ return r.ok ? r.blob() : null; }).then(function(b){ return b ? URL.createObjectURL(b) : null; }).catch(function(){ return null; });
-          }));
-          fUrls = fUrls.filter(Boolean);
-          if(fUrls.length === 0) throw new Error('تعذر توليد المشاهد حالياً');
-
-          var imObjs = await Promise.all(fUrls.map(function(u){ return new Promise(function(res){ var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function(){ res(im); }; im.onerror = function(){ res(null); }; im.src = u; }); }));
-          imObjs = imObjs.filter(Boolean);
-
-          wait.innerHTML = '🎮 جاري تشغيل معالج الرسوميات (WebGL GLSL GPU) بسرعة 60fps...';
-          var cv = document.createElement('canvas'); cv.width = dims.w; cv.height = dims.h;
-          var gl = cv.getContext('webgl', {preserveDrawingBuffer: true});
-
-          // تهيئة مظللات الرسوميات (Vertex & Fragment GLSL Shaders)
-          var vsSrc = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = vec2(a_pos.x*0.5+0.5, 0.5-a_pos.y*0.5); gl_Position = vec4(a_pos, 0.0, 1.0); }';
-          var fsSrc = 'precision mediump float; uniform sampler2D u_tex; uniform float u_time; uniform float u_prog; uniform int u_mode; varying vec2 v_uv;' +
-            'void main(){' +
-            '  vec2 uv = v_uv;' +
-            '  float z = (u_mode == 0) ? (1.0 + u_prog * 0.14) : (1.14 - u_prog * 0.14);' +
-            '  uv = (uv - 0.5) / z + 0.5;' +
-            '  uv.x += sin(uv.y * 5.0 + u_time * 2.2) * 0.0045;' +
-            '  uv.y += cos(uv.x * 5.0 + u_time * 1.8) * 0.0045;' +
-            '  vec4 col = texture2D(u_tex, clamp(uv, 0.002, 0.998));' +
-            '  float glow = smoothstep(0.85, 0.0, length(v_uv - vec2(0.5 + sin(u_time)*0.25, 0.35)));' +
-            '  col.rgb += vec3(0.14, 0.09, 0.03) * glow;' +
-            '  float vig = smoothstep(0.95, 0.35, length(v_uv - 0.5));' +
-            '  col.rgb *= mix(0.68, 1.08, vig);' +
-            '  gl_FragColor = col;' +
-            '}';
-
-          function mkSh(type, src){ var sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); return sh; }
-          var prog = gl.createProgram();
-          gl.attachShader(prog, mkSh(gl.VERTEX_SHADER, vsSrc));
-          gl.attachShader(prog, mkSh(gl.FRAGMENT_SHADER, fsSrc));
-          gl.linkProgram(prog); gl.useProgram(prog);
-
-          var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-          var posLoc = gl.getAttribLocation(prog, 'a_pos');
-          gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-          // تحويل المشاهد إلى نسيج رسومي (GPU Textures)
-          var texList = imObjs.map(function(im){
-            var tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
-            return tx;
-          });
-
-          // طبقة النصوص والجزيئات فوق طبقة WebGL
-          var hud = document.createElement('canvas'); hud.width = dims.w; hud.height = dims.h;
-          var hctx = hud.getContext('2d');
-          var rec = new MediaRecorder(hud.captureStream(30)), chunks = [];
-          rec.ondataavailable = function(e){ if(e.data.size > 0) chunks.push(e.data); };
-          var doneRec = new Promise(function(res){ rec.onstop = function(){ res(URL.createObjectURL(new Blob(chunks, {type:'video/webm'}))); }; });
-          rec.start();
-
-          var uTime = gl.getUniformLocation(prog, 'u_time');
-          var uProg = gl.getUniformLocation(prog, 'u_prog');
-          var uMode = gl.getUniformLocation(prog, 'u_mode');
-          var pts = Array.from({length: 30}, function(){ return {x: Math.random()*hud.width, y: Math.random()*hud.height, r: 1.5+Math.random()*2.5, vx: (Math.random()-0.5)*1.2, vy: -0.6-Math.random()*1.2, a: 0.35+Math.random()*0.55}; });
-
-          var totalFrames = targetSec * 30, perScene = Math.max(Math.floor(totalFrames / texList.length), 30), fc = 0;
-          await new Promise(function(res){
-            var tm = setInterval(function(){
-              var idx = Math.min(Math.floor(fc / perScene), texList.length - 1);
-              var lp = (fc % perScene) / perScene;
-              gl.viewport(0, 0, cv.width, cv.height);
-              gl.bindTexture(gl.TEXTURE_2D, texList[idx]);
-              gl.uniform1f(uTime, fc * 0.033);
-              gl.uniform1f(uProg, lp);
-              gl.uniform1i(uMode, idx % 2);
-              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-              hctx.clearRect(0, 0, hud.width, hud.height);
-              hctx.drawImage(cv, 0, 0);
-
-              pts.forEach(function(pt){
-                pt.x += pt.vx; pt.y += pt.vy;
-                if(pt.y < 0) pt.y = hud.height;
-                if(pt.x < 0) pt.x = hud.width;
-                if(pt.x > hud.width) pt.x = 0;
-                hctx.beginPath(); hctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2);
-                hctx.fillStyle = 'rgba(255, 225, 160, ' + pt.a + ')'; hctx.fill();
-              });
-
-              var cap = captions[idx % captions.length];
-              if(cap){
-                var grad = hctx.createLinearGradient(0, hud.height*0.72, 0, hud.height);
-                grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-                hctx.fillStyle = grad; hctx.fillRect(0, hud.height*0.72, hud.width, hud.height*0.28);
-                hctx.font = 'bold ' + Math.round(hud.width * 0.044) + 'px sans-serif';
-                hctx.textAlign = 'center'; hctx.fillStyle = '#ffffff';
-                hctx.shadowColor = 'rgba(0,0,0,0.9)'; hctx.shadowBlur = 8;
-                hctx.fillText(cap, hud.width/2, hud.height * 0.91);
-                hctx.shadowBlur = 0;
-              }
-              if(++fc >= totalFrames){ clearInterval(tm); rec.stop(); res(); }
-            }, 33);
-          });
-          var fbVid = await doneRec;
-          wait.remove();
-          addMsg('AI', '🎬 <b>تم إنتاج الفيديو بالموشن جرافيك والذكاء الاصطناعي (' + targetSec + ' ثوانٍ):</b>', {vid: fbVid});
-          if(captions.length > 0 && 'speechSynthesis' in window){
-            var ut = new SpeechSynthesisUtterance(captions.join(' ، '));
-            ut.lang = 'ar-SA'; window.speechSynthesis.speak(ut);
-          }
-        }
-      } else if((low.indexOf('صورة') !== -1 || low.indexOf('صور') !== -1 || low.indexOf('ارسم') !== -1 || low.indexOf('صمم') !== -1 || low.indexOf('image') !== -1) && cType !== 'img'){
-        var cleanT = t.replace(/صمم لي صور|صمم لي صورة|صمم صورة|ارسم لي|ارسم|صور|صورة/gi, '').trim();
-        var en = cleanT.length > 2 ? await askAI([{role:'user', content:'Write a short, realistic, modest 8K English photo description (max 15 words, ONLY English, always modest): ' + cleanT}]) : 'majestic Arabian horse in golden Sahara desert at sunset, ultra realistic 8k photography';
-        en = en.replace(/[^a-zA-Z0-9 ,.-]/g, '').trim().slice(0, 140) || 'cinematic ultra realistic 8k landscape photography';
-        var wImgUrl = 'https:' + sl + sl + 'hidden-bread-95eb.dz30007000.workers.dev' + sl + 'image';
-        var ir = await fetch(wImgUrl, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({prompt: en, width: dims.w, height: dims.h})
-        });
-        var iData = await ir.json().catch(function(){ return {}; });
-        if(!ir.ok || !iData.image_url) throw new Error(iData.error || 'فشل توليد الصورة');
-        wait.remove(); addMsg('AI', '🎨 <b>تم تصميم الصورة بدقة عالية (' + (iData.engine || 'AI') + '):</b>', {img: iData.image_url});
-      } else {
-        var fullT = cType === 'doc' ? (t + '\n\n[محتوى الملف ' + cName + ']:\n' + String(cData).slice(0, 4000)) : (t || 'مرحباً');
-        hist.push({role:'user', content: fullT});
-        var rep = await askAI(hist, cType === 'img' ? cData : null);
-        hist.push({role:'assistant', content: rep});
-        saveHist(); wait.remove(); addMsg('AI', rep);
-      }
-    } catch(err){ wait.innerHTML = '⚠️ ' + (err.message || err); }
-  }
-  document.getElementById('btnSend').addEventListener('click', doSend);
-  q.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSend(); });
-})();
-</script></body></html>
+<div id="previewBar"><span id="prevName">📎 ملف مرفق</span><button type="button" id="clearAttBtn" style="background:none;border:none;color:#f87171;font-weight:700;cursor:pointer;font-size:16px">✕</button></div>
+<input type="file" id="fileInp" style="display:none">
+<div class="dock">
+  <button type="button" id="sendBtn" class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+  <div class="input-wrap"><input id="q" type="text" placeholder="اكتب وصف الصورة أو الفيديو أو سؤالك..."></div>
+  <button type="button" id="plusBtn" class="icon-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  <div id="plusMenu">
+    <button type="button" class="pm-item" id="pickImgBtn">🖼️ إضافة صورة / تحريكها</button>
+    <button type="button" class="pm-item" id="pickDocBtn">📄 إضافة ملف نصي</button>
+    <button type="button" class="pm-item" data-fill="صمم لي صورة 8K واقعية لـ ">🎨 توليد صورة فائقة الواقعية</button>
+    <button type="button" class="pm-item" data-fill="أنشئ مشهد أنمي سينمائي لـ ">🎬 توليد فيديو سينمائي</button>
+  </div>
+</div>
+<script src="app.js?v=1000"></script>
+</body>
+</html>
