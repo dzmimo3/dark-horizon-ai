@@ -110,8 +110,8 @@ def api_image():
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
         # استخدام num_steps=4 في FLUX-1-schnell لأقصى سرعة توليد (1.5 ثانية)
         for mdl, payload in [
-            ("@cf/black-forest-labs/flux-1-schnell", {"prompt": en_prompt + ", hyperrealistic, sharp focus, intricate details, 8k uhd", "num_steps": 8}),
-            ("@cf/lykon/dreamshaper-8-lcm", {"prompt": en_prompt + ", sharp focus, 8k uhd", "num_steps": 8}),
+            ("@cf/black-forest-labs/flux-1-schnell", {"prompt": en_prompt + ", hyperrealistic, sharp focus, intricate details, 16k ultra hd, extreme micro-detail, cinema master, hyper-sharp", "num_steps": 8}),
+            ("@cf/lykon/dreamshaper-8-lcm", {"prompt": en_prompt + ", sharp focus, 16k ultra hd, extreme micro-detail, cinema master, hyper-sharp", "num_steps": 8}),
             ("@cf/stabilityai/stable-diffusion-xl-base-1.0", {"prompt": en_prompt})
         ]:
             try:
