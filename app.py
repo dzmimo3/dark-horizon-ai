@@ -360,13 +360,36 @@ def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece").strip()
+    sl = chr(47)
 
-    en_prompt = llm_think([
-        {"role": "system", "content": "Translate the user request into a vivid, accurate English visual prompt (max 22 words, photorealistic 8k, no text). Output ONLY the English prompt."},
+    # 1. استخراج الاسم أو الموضوع بدقة من الذكاء الاصطناعي
+    info = llm_think([
+        {"role": "system", "content": "Analyze the image request. If it asks for a REAL famous person or landmark (like Messi, Ronaldo, Maqam Echahid), reply ONLY with: REAL|<Exact English Wikipedia Title>. Otherwise, reply ONLY with: AI|<Vivid English visual prompt, max 22 words, photorealistic 8k, no text>."},
         {"role": "user", "content": raw_q}
-    ], temp=0.15).replace('"', '').strip() or (raw_q + ", photorealistic 8k")
+    ], temp=0.1).replace('"', '').strip()
 
-    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
+    if info.startswith("REAL|"):
+        wiki_title = info.split("|", 1)[-1].strip()
+        try:
+            wr = requests.get(f"https:{sl}{sl}en.wikipedia.org{sl}w{sl}api.php", params={
+                "action": "query", "titles": wiki_title, "prop": "pageimages",
+                "piprop": "thumbnail", "pithumbsize": 800, "format": "json", "redirects": 1
+            }, headers={"User-Agent": "DarkHorizonFilms/36.0"}, timeout=5)
+            if wr.status_code == 200:
+                for p in ((wr.json().get("query") or {}).get("pages") or {}).values():
+                    th = (p.get("thumbnail") or {}).get("source")
+                    if th:
+                        ir = requests.get(th, headers={"User-Agent": "DarkHorizonFilms/36.0"}, timeout=6)
+                        if ir.status_code == 200 and len(ir.content) > 4000:
+                            return Response(ir.content, mimetype="image/jpeg", headers=cors())
+        except Exception:
+            pass
+        en_prompt = f"{wiki_title}, dramatic stadium lighting, photorealistic 8k, no text"
+    else:
+        en_prompt = info.split("|", 1)[-1].strip() if "|" in info else (raw_q + ", photorealistic 8k")
+
+    # 2. محركات التوليد بالذكاء الاصطناعي (Cloudflare 3 نماذج + Hugging Face FLUX)
+    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if cid and ctok:
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
         for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0"]:
