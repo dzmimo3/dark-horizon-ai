@@ -411,6 +411,25 @@ def api_video():
         except Exception:
             pass
 
+        # 2. خط بديل مضمون: سحب فيديو حقيقي مطابق من أرشيف Wikimedia/Archive.org وتمريره
+    sl = chr(47)
+    try:
+        kw = " ".join(en_prompt.split()[:2])
+        r = requests.get(f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php", params={
+            "action": "query", "generator": "search", "gsrsearch": f"filetype:video {kw} -sign",
+            "gsrnamespace": 6, "gsrlimit": 4, "prop": "imageinfo", "iiprop": "url|size", "format": "json"
+        }, headers={"User-Agent": "DarkHorizonFilms/34.0"}, timeout=5)
+        if r.status_code == 200:
+            for p in ((r.json().get("query") or {}).get("pages") or {}).values():
+                if "sign" in p.get("title", "").lower(): continue
+                ii = next(iter(p.get("imageinfo") or []), {})
+                vu, sz = ii.get("url"), ii.get("size", 99999999)
+                if vu and sz < 12000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
+                    vr = requests.get(vu, headers={"User-Agent": "DarkHorizonFilms/34.0"}, timeout=9)
+                    if vr.status_code == 200 and len(vr.content) > 20000:
+                        return Response(vr.content, mimetype="video/mp4", headers=cors())
+    except Exception:
+        pass
     return jsonify({"error": "t2v_unavailable", "en_prompt": en_prompt}), 503, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
