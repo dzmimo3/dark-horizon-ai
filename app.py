@@ -328,7 +328,9 @@ def search_all_global_video_archives(en_q):
             }, headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=4)
             if r.status_code == 200:
                 for p in ((r.json().get("query") or {}).get("pages") or {}).values():
-                    if any(b in p.get("title", "").lower() for b in ["sign", "asl", "bsl", "lsf"]): continue
+                    title_l = p.get("title", "").lower()
+                    if any(b in title_l for b in ["sign", "asl", "bsl", "lsf"]): continue
+                    if not any(kw in title_l for kw in en_q.lower().split() if len(kw) > 2): continue
                     ii = next(iter(p.get("imageinfo") or []), {})
                     vu, sz = ii.get("url"), ii.get("size", 99999999)
                     if vu and sz < 13000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
@@ -376,7 +378,8 @@ def search_all_global_video_archives(en_q):
         return None
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        futs = [ex.submit(from_wikimedia), ex.submit(from_internet_archive), ex.submit(from_nasa)]
+        is_space = any(w in en_q.lower() for w in ["space", "planet", "rocket", "moon", "mars", "earth", "nasa", "galaxy", "star"])
+        futs = [ex.submit(from_wikimedia), ex.submit(from_internet_archive)] + ([ex.submit(from_nasa)] if is_space else [])
         for fu in futs:
             try:
                 res = fu.result(timeout=8)
