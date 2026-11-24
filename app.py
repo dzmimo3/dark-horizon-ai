@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 IMG_CACHE = {}
+# NO_CACHE_FORCE_AI
 
 MASTER_BRAIN = """
 You are the Master AI Director and Polyglot Studio Brain of DARK HORIZON FILMS.
