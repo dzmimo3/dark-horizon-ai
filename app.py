@@ -321,26 +321,33 @@ def api_archive_video():
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "car racing").strip()
     en_q = llm_think([
-        {"role": "system", "content": "Extract ONLY the core visual subject in 2 English words (ignore duration/numbers like '10 seconds' or 'عشر ثوان'). Example: 'فيديو مدته عشر ثوان سباق سيارات' -> 'car racing'. Output ONLY the 2 English words."},
+        {"role": "system", "content": "Extract ONLY 2 English keywords for searching a real action video (e.g. 'car race', 'football match', 'running athlete'). Output ONLY the 2 words."},
         {"role": "user", "content": raw_q}
-    ], temp=0.1).replace('"', '').strip() or "car racing"
+    ], temp=0.1).replace('"', '').strip() or "car race"
 
     sl = chr(47)
+    # البحث في أرشيف الفيديوهات الحقيقية وبث الفيديو مباشرة للمتصفح لتجاوز CORS
     try:
         api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
         r = requests.get(api_u, params={
             "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q} -sign -language",
-            "gsrnamespace": 6, "gsrlimit": 5, "prop": "imageinfo", "iiprop": "url", "format": "json"
-        }, headers={"User-Agent": "DarkHorizonFilms/26.0"}, timeout=4)
+            "gsrnamespace": 6, "gsrlimit": 6, "prop": "imageinfo", "iiprop": "url|size", "format": "json"
+        }, headers={"User-Agent": "DarkHorizonFilms/27.0"}, timeout=5)
         if r.status_code == 200:
             for p in ((r.json().get("query") or {}).get("pages") or {}).values():
                 title = p.get("title", "").lower()
-                if any(bad in title for bad in ["sign", "asl", "bsl", "lsf", "pronunciation"]): continue
-                vu = next(iter(p.get("imageinfo") or []), {}).get("url")
-                if vu and any(ext in vu.lower() for ext in [".webm", ".mp4", ".ogv"]):
-                    return jsonify({"url": vu, "subject": en_q}), 200, cors()
-    except Exception: pass
-    return jsonify({"url": "", "subject": en_q}), 200, cors()
+                if any(b in title for b in ["sign", "asl", "bsl", "lsf", "pronunciation"]): continue
+                ii = next(iter(p.get("imageinfo") or []), {})
+                vu = ii.get("url")
+                sz = ii.get("size", 99999999)
+                if vu and sz < 14000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
+                    vr = requests.get(vu, headers={"User-Agent": "DarkHorizonFilms/27.0"}, timeout=10)
+                    if vr.status_code == 200 and len(vr.content) > 20000:
+                        mime = "video/mp4" if vu.lower().endswith(".mp4") else "video/webm"
+                        return Response(vr.content, mimetype=mime, headers=cors())
+    except Exception:
+        pass
+    return jsonify({"error": "no_video_found"}), 404, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
