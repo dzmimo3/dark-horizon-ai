@@ -115,7 +115,7 @@ def learn_and_generate_from_reference(raw_q):
 
     # 3. صياغة المخطط البصري وحفظه في عقل موقعك (Supabase) ليتعلم منه مستقبلاً
     ai_prompt = llm_think([
-        {"role": "system", "content": "Create a brand new 8k AI cinema generation prompt (22-28 words) inspired by the learned visual blueprint (pose, lighting, framing) for the requested subject. Output ONLY the English prompt."},
+        {"role": "system", "content": "Create a brand new 8k AI cinema generation prompt (25-32 words) based on the learned visual blueprint (pose, facial features, hairstyle, clothing, lighting, camera angle). Do NOT use copyrighted celebrity names directly so the image generator never blocks it; instead describe their exact appearance and iconic style vividly. Output ONLY the English prompt."},
         {"role": "user", "content": f"Subject: {en_subject} ({raw_q})\nLearned Blueprint: {learned_blueprint}"}
     ], temp=0.45).replace('"', '').strip() or f"{en_subject}, dramatic cinematic stadium lighting, 8k digital art"
 
