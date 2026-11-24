@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-import os, io, urllib.parse, time, random, threading, base64, asyncio, requests
+import os, io, urllib.parse, xml.etree.ElementTree as ET, urllib.parse, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
@@ -52,7 +52,86 @@ def recall_memory():
     except Exception: pass
     return ""
 
+
+def global_omnisearch_articles_news(q):
+    sl = chr(47)
+    enc = urllib.parse.quote(q)
+    is_ar = any("\u0600" <= c <= "\u06FF" for c in q)
+
+    def from_google_news():
+        try:
+            hl = "ar&gl=DZ&ceid=DZ:ar" if is_ar else "en-US&gl=US&ceid=US:en"
+            r = requests.get(f"https:{sl}{sl}://google.com{sl}rss{sl}search?q={enc}&hl={hl}", timeout=3.5)
+            if r.status_code == 200:
+                root = ET.fromstring(r.text)
+                return [f"[Google News]: {i.findtext('title','')}" for i in root.findall(".//item")[:3]]
+        except Exception: pass
+        return []
+
+    def from_ddg_web():
+        try:
+            from ddgs import DDGS
+            return [f"[Web Article - {x.get('title')}]: {x.get('body','')[:220]}" for x in list(DDGS().text(q, max_results=3))]
+        except Exception: pass
+        return []
+
+    def from_tavily():
+        tk = os.environ.get("TAVILY_API_KEY", "").strip()
+        if not tk: return []
+        try:
+            u = "https:" + sl + sl + "api." + "tavily.com" + sl + "search"
+            r = requests.post(u, json={"api_key": tk, "query": q, "max_results": 3}, timeout=4)
+            if r.status_code == 200:
+                return [f"[Deep Search - {x.get('title')}]: {x.get('content','')[:220]}" for x in (r.json().get("results") or [])]
+        except Exception: pass
+        return []
+
+    def from_hackernews():
+        try:
+            r = requests.get(f"https:{sl}{sl}://algolia.com{sl}api{sl}v1{sl}search", params={"query": q, "hitsPerPage": 2}, timeout=3)
+            if r.status_code == 200:
+                return [f"[Tech News]: {h.get('title')}" for h in (r.json().get("hits") or []) if h.get("title")]
+        except Exception: pass
+        return []
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = [ex.submit(from_google_news), ex.submit(from_ddg_web), ex.submit(from_tavily), ex.submit(from_hackernews)]
+        out = []
+        for fu in futs:
+            try: out.extend(fu.result(timeout=4.5))
+            except Exception: pass
+    return "\n".join(out)
+
+def search_web_real_images(en_q):
+    # جلب صور حقيقية من DuckDuckGo Images + Openverse (بعيداً عن ويكيبيديا فقط)
+    try:
+        from ddgs import DDGS
+        for item in list(DDGS().images(en_q, max_results=4)):
+            iu = item.get("image")
+            if iu and any(ext in iu.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                ir = requests.get(iu, headers={"User-Agent": "Mozilla/5.0"}, timeout=4)
+                if ir.status_code == 200 and len(ir.content) > 12000:
+                    return ir.content
+    except Exception: pass
+    return search_openverse_image(en_q)
+
+def search_web_real_videos(en_q):
+    # جلب فيديوهات حقيقية من DuckDuckGo Videos + Archive.org + Wikimedia
+    try:
+        from ddgs import DDGS
+        for item in list(DDGS().videos(en_q, max_results=4)):
+            vu = item.get("content")
+            if vu and any(ext in vu.lower() for ext in [".mp4", ".webm"]):
+                vr = requests.get(vu, headers={"User-Agent": "Mozilla/5.0"}, timeout=7)
+                if vr.status_code == 200 and len(vr.content) > 20000:
+                    return vr.content, ("video/mp4" if ".mp4" in vu.lower() else "video/webm")
+    except Exception: pass
+    return search_all_global_video_archives(en_q)
+
 def web_search(q):
+    return global_omnisearch_articles_news(q)
+
+def _unused_ws(q):
     sl, chunks = chr(47), []
     lang = "ar" if any("\u0600" <= c <= "\u06FF" for c in q) else "en"
     try:
@@ -289,7 +368,7 @@ def api_image():
 
     # 1. جلب الصورة الحقيقية من الأرشيف العالمي ثم تحويلها بالذكاء الاصطناعي (Image-to-Image)
     ref_bytes, en_title = fetch_global_archive_media(clean_q, want_video=False)
-    if not ref_bytes: ref_bytes = search_openverse_image(en_title)
+    if not ref_bytes: ref_bytes = search_web_real_images(en_title)
     if ref_bytes:
         ai_transformed = transform_with_ai_img2img(ref_bytes, en_title)
         IMG_CACHE[cache_key] = ai_transformed
@@ -412,7 +491,7 @@ def api_archive_video():
         {"role": "user", "content": raw_q}
     ], temp=0.1).replace('"', '').strip() or "car racing"
 
-    found = search_all_global_video_archives(en_q)
+    found = search_web_real_videos(en_q)
     if found:
         vb, mime = found
         return Response(vb, mimetype=mime, headers=cors())
