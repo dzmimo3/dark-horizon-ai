@@ -85,27 +85,58 @@ def api_chat():
     threading.Thread(target=save_db, args=(prompt, rep), daemon=True).start()
     return jsonify({"reply": rep}), 200, cors()
 
+def learn_and_generate_from_reference(raw_q):
+    sl = chr(47)
+    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    en_subject = llm_think([
+        {"role": "system", "content": "Extract ONLY the 2-3 word English subject (e.g. 'Cristiano Ronaldo', 'rally car', 'Maqam Echahid'). Output ONLY the words."},
+        {"role": "user", "content": raw_q}
+    ], temp=0.1).replace('"', '').strip() or raw_q
+
+    learned_blueprint = ""
+    # 1. جلب الصورة المرجعية من الأرشيف العالمي (دون إرجاعها للمستخدم!)
+    try:
+        wr = requests.get(f"https:{sl}{sl}en.wikipedia.org{sl}w{sl}api.php", params={
+            "action": "query", "generator": "search", "gsrsearch": en_subject, "gsrlimit": 1,
+            "prop": "pageimages", "piprop": "thumbnail", "pithumbsize": 512, "format": "json"
+        }, headers={"User-Agent": "DarkHorizonFilms/41.0"}, timeout=4)
+        pages = ((wr.json().get("query") or {}).get("pages") or {})
+        th = next((p.get("thumbnail", {}).get("source") for p in pages.values() if p.get("thumbnail")), None)
+        if th and cid and ctok:
+            ref_bytes = requests.get(th, timeout=5).content
+            # 2. تحليل الصورة بالرؤية الحاسوبية لاستخراج "كيفية التصميم والوضعية والإضاءة"
+            vis_u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "unum" + sl + "uform-gen2-qwen-500m"
+            vr = requests.post(vis_u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                json={"image": list(ref_bytes), "prompt": "Describe the camera angle, pose, clothing colors, background, and lighting style in 20 words."}, timeout=8)
+            if vr.status_code == 200:
+                learned_blueprint = (vr.json().get("result") or {}).get("description", "").strip()
+    except Exception:
+        pass
+
+    # 3. صياغة المخطط البصري وحفظه في عقل موقعك (Supabase) ليتعلم منه مستقبلاً
+    ai_prompt = llm_think([
+        {"role": "system", "content": "Create a brand new 8k AI cinema generation prompt (22-28 words) inspired by the learned visual blueprint (pose, lighting, framing) for the requested subject. Output ONLY the English prompt."},
+        {"role": "user", "content": f"Subject: {en_subject} ({raw_q})\nLearned Blueprint: {learned_blueprint}"}
+    ], temp=0.45).replace('"', '').strip() or f"{en_subject}, dramatic cinematic stadium lighting, 8k digital art"
+
+    if learned_blueprint:
+        threading.Thread(target=save_db, args=(f"[LEARNED_STYLE] {raw_q}", f"Blueprint: {learned_blueprint} -> Prompt: {ai_prompt}"), daemon=True).start()
+
+    return ai_prompt + ", epic 8k digital cinema render, no text"
+
 @app.route("/api/image", methods=["POST", "OPTIONS"])
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
-    data = request.get_json(silent=True) or {}
-    raw_q = data.get("prompt", "cinematic supercar").strip()
-    sl = chr(47)
+    raw_q = (request.get_json(silent=True) or {}).get("prompt", "cinematic supercar").strip()
+    en_prompt = learn_and_generate_from_reference(raw_q)
 
-    # تحويل أي طلب (حتى أسماء المشاهير) إلى وصف بصري سينمائي غني يقبله FLUX دون قيود ولا يعرض صوراً خاماً أبداً
-    real_facts = live_research(raw_q)[:400]
-    en_prompt = llm_think([
-        {"role": "system", "content": "You are a Cinema Concept Artist. Convert the request and facts into a vivid English 8k digital cinema art prompt (20-28 words). Describe the appearance, clothing, stadium/environment, and dramatic lighting in detail so the AI generates a brand new 8k artwork. Output ONLY the English prompt."},
-        {"role": "user", "content": f"Request: {raw_q}\nFacts:\n{real_facts}"}
-    ], temp=0.45).replace('"', '').strip() or (raw_q + ", dramatic 8k digital cinema art")
-
-    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
         for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0"]:
             try:
                 r = requests.post(cf_base + mdl, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                    json={"prompt": en_prompt + ", epic lighting, 8k concept art, no text"}, timeout=16)
+                    json={"prompt": en_prompt}, timeout=16)
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
                     if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
