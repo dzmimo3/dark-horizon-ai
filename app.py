@@ -87,15 +87,40 @@ def api_chat():
 @app.route("/api/image", methods=["POST", "OPTIONS"])
 def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
-    raw_q = (request.get_json(silent=True) or {}).get("prompt", "cinematic supercar at sunset").strip()
-    if raw_q in IMG_CACHE: return Response(IMG_CACHE[raw_q], mimetype="image/jpeg", headers=cors())
-    en_prompt = llm_think([
-        {"role": "system", "content": "Translate into a vivid English image prompt (max 22 words, photorealistic 8k, no text). Output ONLY the prompt."},
-        {"role": "user", "content": raw_q}
-    ], temp=0.15).replace('"', '').strip() or "cinematic futuristic scene, photorealistic 8k"
+    data = request.get_json(silent=True) or {}
+    raw_q = data.get("prompt", "cinematic supercar at sunset").strip()
+    sl = chr(47)
 
-    cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
+    # 1. استخلاص الفكرة الواقعية وتحويلها إلى وصف فني غني للتوليد بالذكاء الاصطناعي (وليس عرض صورة خام)
+    real_facts = live_research(raw_q)[:450]
+    en_prompt = llm_think([
+        {"role": "system", "content": "You are an AI Art Director. Use the real-world facts to write a vivid, cinematic English AI generation prompt (max 25 words, 8k digital cinema art, dramatic lighting, no text). Never output raw search text."},
+        {"role": "user", "content": f"Request: {raw_q}\nReal-World Context:\n{real_facts}"}
+    ], temp=0.35).replace('"', '').strip() or (raw_q + ", cinematic 8k AI art")
+
+    cid, ctok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+
+    # 2. إذا وجدنا صورة مرجعية حقيقية، نمررها لـ Image-to-Image (strength=0.58) ليعيد الذكاء الاصطناعي رسمها وتوليدها بأسلوبه الفني!
     if cid and ctok:
+        try:
+            en_title = llm_think([{"role": "system", "content": "Extract ONLY the 2-word English subject name (e.g. 'Cristiano Ronaldo', 'rally car')."}, {"role": "user", "content": raw_q}], temp=0.1).replace('"', '').strip()
+            wr = requests.get(f"https:{sl}{sl}en.wikipedia.org{sl}w{sl}api.php", params={
+                "action": "query", "generator": "search", "gsrsearch": en_title, "gsrlimit": 1,
+                "prop": "pageimages", "piprop": "thumbnail", "pithumbsize": 512, "format": "json"
+            }, headers={"User-Agent": "DarkHorizonFilms/38.0"}, timeout=4)
+            pages = ((wr.json().get("query") or {}).get("pages") or {})
+            th = next((p.get("thumbnail", {}).get("source") for p in pages.values() if p.get("thumbnail")), None)
+            if th:
+                ref_bytes = requests.get(th, timeout=5).content
+                i2i_u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "runwayml" + sl + "stable-diffusion-v1-5-img2img"
+                ir = requests.post(i2i_u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                    json={"prompt": en_prompt + ", stylized 8k AI cinema render, dramatic lighting, no text", "image": list(ref_bytes), "strength": 0.58, "guidance": 8.5}, timeout=14)
+                if ir.status_code == 200 and "image" in ir.headers.get("Content-Type", "") and len(ir.content) > 5000:
+                    return Response(ir.content, mimetype="image/jpeg", headers=cors())
+        except Exception:
+            pass
+
+        # 3. التوليد الكامل بالذكاء الاصطناعي من الوصف الواقعي عبر FLUX / DreamShaper / SDXL
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
         for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0"]:
             try:
@@ -103,9 +128,9 @@ def api_image():
                     json={"prompt": en_prompt + ", no text"}, timeout=15)
                 if r.status_code == 200:
                     ct = r.headers.get("Content-Type", "")
-                    if "image" in ct and len(r.content) > 4000: IMG_CACHE[raw_q] = r.content; return Response(r.content, mimetype=ct, headers=cors())
+                    if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
                     b64 = (r.json().get("result") or {}).get("image")
-                    if b64: ib = base64.b64decode(b64); IMG_CACHE[raw_q] = ib; return Response(ib, mimetype="image/jpeg", headers=cors())
+                    if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
             except Exception: continue
 
     hf = os.environ.get("HF_TOKEN", "").strip()
@@ -113,9 +138,10 @@ def api_image():
         try:
             from huggingface_hub import InferenceClient
             pil_img = InferenceClient(token=hf).text_to_image(en_prompt, model="black-forest-labs/FLUX.1-schnell")
-            buf = io.BytesIO(); pil_img.save(buf, format="JPEG", quality=92); ib = buf.getvalue()
-            IMG_CACHE[raw_q] = ib; return Response(ib, mimetype="image/jpeg", headers=cors())
+            buf = io.BytesIO(); pil_img.save(buf, format="JPEG", quality=92)
+            return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
         except Exception: pass
+
     return jsonify({"error": "img_busy"}), 503, cors()
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
