@@ -361,27 +361,37 @@ def api_image():
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece").strip()
 
-    # ترجمة دقيقة للموضوع المطلوب فقط (بدون أي بحث عشوائي في Openverse)
     en_prompt = llm_think([
-        {"role": "system", "content": "Translate the user request into a vivid, accurate English visual prompt (max 22 words, photorealistic 8k, no text). Example: 'فيديو كرة القدم' -> 'professional soccer players kicking football on green stadium pitch under bright floodlights, dynamic action, photorealistic 8k'. Output ONLY the English prompt."},
+        {"role": "system", "content": "Translate the user request into a vivid, accurate English visual prompt (max 22 words, photorealistic 8k, no text). Output ONLY the English prompt."},
         {"role": "user", "content": raw_q}
     ], temp=0.15).replace('"', '').strip() or (raw_q + ", photorealistic 8k")
 
     cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
-        u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
+        cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
+        for mdl in ["@cf/black-forest-labs/flux-1-schnell", "@cf/lykon/dreamshaper-8-lcm", "@cf/stabilityai/stable-diffusion-xl-base-1.0"]:
+            try:
+                r = requests.post(cf_base + mdl, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
+                    json={"prompt": en_prompt + ", no text"}, timeout=15)
+                if r.status_code == 200:
+                    ct = r.headers.get("Content-Type", "")
+                    if "image" in ct and len(r.content) > 4000: return Response(r.content, mimetype=ct, headers=cors())
+                    b64 = (r.json().get("result") or {}).get("image")
+                    if b64: return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
+            except Exception:
+                continue
+
+    hf = os.environ.get("HF_TOKEN", "").strip()
+    if hf:
         try:
-            r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": en_prompt + ", no text"}, timeout=14)
-            if r.status_code == 200:
-                ct = r.headers.get("Content-Type", "")
-                if "image" in ct and len(r.content) > 4000:
-                    return Response(r.content, mimetype=ct, headers=cors())
-                b64 = (r.json().get("result") or {}).get("image")
-                if b64:
-                    return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
+            from huggingface_hub import InferenceClient
+            pil_img = InferenceClient(token=hf).text_to_image(en_prompt, model="black-forest-labs/FLUX.1-schnell")
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=92)
+            return Response(buf.getvalue(), mimetype="image/jpeg", headers=cors())
         except Exception:
             pass
+
     return jsonify({"error": "img_busy"}), 503, cors()
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
