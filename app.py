@@ -81,7 +81,7 @@ def api_chat():
     rep = llm_think([
         {"role": "system", "content": MASTER_BRAIN + "\nReply in the exact language/dialect of the user." + ctx},
         {"role": "user", "content": prompt}
-    ], temp=0.55) or "⚡ جاهز لخدمتك في DARK HORIZON FILMS."
+    ], temp=0.45) or "⚡ جاهز لخدمتك في DARK HORIZON FILMS."
     threading.Thread(target=save_db, args=(prompt, rep), daemon=True).start()
     return jsonify({"reply": rep}), 200, cors()
 
@@ -110,8 +110,8 @@ def api_image():
         cf_base = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl
         # استخدام num_steps=4 في FLUX-1-schnell لأقصى سرعة توليد (1.5 ثانية)
         for mdl, payload in [
-            ("@cf/black-forest-labs/flux-1-schnell", {"prompt": en_prompt, "num_steps": 4}),
-            ("@cf/lykon/dreamshaper-8-lcm", {"prompt": en_prompt, "num_steps": 6}),
+            ("@cf/black-forest-labs/flux-1-schnell", {"prompt": en_prompt + ", hyperrealistic, sharp focus, intricate details, 8k uhd", "num_steps": 8}),
+            ("@cf/lykon/dreamshaper-8-lcm", {"prompt": en_prompt + ", sharp focus, 8k uhd", "num_steps": 8}),
             ("@cf/stabilityai/stable-diffusion-xl-base-1.0", {"prompt": en_prompt})
         ]:
             try:
