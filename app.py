@@ -319,11 +319,26 @@ def api_image():
 def api_archive_video():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    raw_q = data.get("prompt", "nature landscape").strip()
-    vid_bytes, _ = fetch_global_archive_media(raw_q, want_video=True)
-    if vid_bytes:
-        return Response(vid_bytes, mimetype="video/webm", headers=cors())
-    return jsonify({"error": "no_archive_video"}), 404, cors()
+    raw_q = data.get("prompt", "soccer").strip()
+    clean_q = raw_q.replace("صمم", "").replace("فيديو", "").replace("انشئ", "").strip()
+    en_q = llm_think([
+        {"role": "system", "content": "Translate to 2-3 English search keywords (e.g. 'football match', 'racing car'). Output ONLY keywords."},
+        {"role": "user", "content": clean_q}
+    ], temp=0.1).replace('"', '').strip() or "football"
+
+    sl = chr(47)
+    try:
+        api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
+        r = requests.get(api_u, params={
+            "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q}",
+            "gsrnamespace": 6, "gsrlimit": 2, "prop": "imageinfo", "iiprop": "url", "format": "json"
+        }, headers={"User-Agent": "DarkHorizonFilms/25.0"}, timeout=3)
+        if r.status_code == 200:
+            for p in ((r.json().get("query") or {}).get("pages") or {}).values():
+                vu = next(iter(p.get("imageinfo") or []), {}).get("url")
+                if vu: return jsonify({"url": vu}), 200, cors()
+    except Exception: pass
+    return jsonify({"error": "fast_fallback"}), 404, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
