@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import os, io, urllib.parse, time, random, threading, base64, asyncio, requests
 from flask import Flask, request, jsonify, Response
 
@@ -288,6 +289,7 @@ def api_image():
 
     # 1. جلب الصورة الحقيقية من الأرشيف العالمي ثم تحويلها بالذكاء الاصطناعي (Image-to-Image)
     ref_bytes, en_title = fetch_global_archive_media(clean_q, want_video=False)
+    if not ref_bytes: ref_bytes = search_openverse_image(en_title)
     if ref_bytes:
         ai_transformed = transform_with_ai_img2img(ref_bytes, en_title)
         IMG_CACHE[cache_key] = ai_transformed
@@ -315,38 +317,102 @@ def api_image():
             pass
     return jsonify({"error": "img_busy"}), 503, cors()
 
+
+def search_all_global_video_archives(en_q):
+    sl = chr(47)
+    def from_wikimedia():
+        try:
+            r = requests.get(f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php", params={
+                "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q} -sign -language",
+                "gsrnamespace": 6, "gsrlimit": 5, "prop": "imageinfo", "iiprop": "url|size", "format": "json"
+            }, headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=4)
+            if r.status_code == 200:
+                for p in ((r.json().get("query") or {}).get("pages") or {}).values():
+                    if any(b in p.get("title", "").lower() for b in ["sign", "asl", "bsl", "lsf"]): continue
+                    ii = next(iter(p.get("imageinfo") or []), {})
+                    vu, sz = ii.get("url"), ii.get("size", 99999999)
+                    if vu and sz < 13000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
+                        vr = requests.get(vu, headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=7)
+                        if vr.status_code == 200 and len(vr.content) > 20000:
+                            return vr.content, ("video/mp4" if vu.lower().endswith(".mp4") else "video/webm")
+        except Exception: pass
+        return None
+
+    def from_internet_archive():
+        try:
+            r = requests.get(f"https:{sl}{sl}archive.org{sl}advancedsearch.php", params={
+                "q": f"({en_q}) AND mediatype:movies AND format:MPEG4",
+                "fl[]": "identifier", "rows": 3, "output": "json"
+            }, timeout=4)
+            if r.status_code == 200:
+                for d in ((r.json().get("response") or {}).get("docs") or []):
+                    ident = d.get("identifier")
+                    if ident:
+                        meta = requests.get(f"https:{sl}{sl}archive.org{sl}metadata{sl}{ident}", timeout=4).json()
+                        for f in (meta.get("files") or []):
+                            fn = f.get("name", "")
+                            if fn.endswith(".mp4") and int(f.get("size", 99999999)) < 11000000:
+                                vr = requests.get(f"https:{sl}{sl}archive.org{sl}download{sl}{ident}{sl}{fn}", timeout=7)
+                                if vr.status_code == 200 and len(vr.content) > 20000:
+                                    return vr.content, "video/mp4"
+        except Exception: pass
+        return None
+
+    def from_nasa():
+        try:
+            r = requests.get(f"https:{sl}{sl}images-api.nasa.gov{sl}search", params={"q": en_q, "media_type": "video"}, timeout=4)
+            if r.status_code == 200:
+                items = ((r.json().get("collection") or {}).get("items") or [])[:2]
+                for it in items:
+                    href = it.get("href")
+                    if href:
+                        assets = requests.get(href, timeout=4).json()
+                        mp4 = next((u for u in assets if isinstance(u, str) and u.endswith("~small.mp4") or u.endswith("~mobile.mp4")), None)
+                        if mp4:
+                            vr = requests.get(mp4, timeout=7)
+                            if vr.status_code == 200 and len(vr.content) > 20000:
+                                return vr.content, "video/mp4"
+        except Exception: pass
+        return None
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        futs = [ex.submit(from_wikimedia), ex.submit(from_internet_archive), ex.submit(from_nasa)]
+        for fu in futs:
+            try:
+                res = fu.result(timeout=8)
+                if res: return res
+            except Exception: pass
+    return None
+
+def search_openverse_image(en_q):
+    sl = chr(47)
+    try:
+        r = requests.get(f"https:{sl}{sl}api.openverse.org{sl}v1{sl}images{sl}", params={"q": en_q, "page_size": 3},
+            headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=4)
+        if r.status_code == 200:
+            for item in (r.json().get("results") or []):
+                iu = item.get("url")
+                if iu:
+                    ir = requests.get(iu, timeout=5)
+                    if ir.status_code == 200 and len(ir.content) > 12000:
+                        return ir.content
+    except Exception: pass
+    return None
+
 @app.route("/api/archive_video", methods=["POST", "OPTIONS"])
 def api_archive_video():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "car racing").strip()
     en_q = llm_think([
-        {"role": "system", "content": "Convert the request into a generic real-world action video search term (2 English words) available in public archives (e.g. 'ميسي' or 'رونالدو' -> 'football match', 'سباق سيارات' -> 'car race', 'قتال' -> 'martial arts'). Output ONLY the 2 English words."},
+        {"role": "system", "content": "Convert the request into a 2-word English visual search term for global archives (e.g. 'سباق سيارات' -> 'car racing', 'فضاء' -> 'space rocket', 'ميسي' -> 'soccer match', 'طبيعة' -> 'nature waterfall'). Output ONLY the 2 English words."},
         {"role": "user", "content": raw_q}
-    ], temp=0.1).replace('"', '').strip() or "car race"
+    ], temp=0.1).replace('"', '').strip() or "car racing"
 
-    sl = chr(47)
-    # البحث في أرشيف الفيديوهات الحقيقية وبث الفيديو مباشرة للمتصفح لتجاوز CORS
-    try:
-        api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
-        r = requests.get(api_u, params={
-            "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q} -sign -language",
-            "gsrnamespace": 6, "gsrlimit": 6, "prop": "imageinfo", "iiprop": "url|size", "format": "json"
-        }, headers={"User-Agent": "DarkHorizonFilms/27.0"}, timeout=5)
-        if r.status_code == 200:
-            for p in ((r.json().get("query") or {}).get("pages") or {}).values():
-                title = p.get("title", "").lower()
-                if any(b in title for b in ["sign", "asl", "bsl", "lsf", "pronunciation"]): continue
-                ii = next(iter(p.get("imageinfo") or []), {})
-                vu = ii.get("url")
-                sz = ii.get("size", 99999999)
-                if vu and sz < 14000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
-                    vr = requests.get(vu, headers={"User-Agent": "DarkHorizonFilms/27.0"}, timeout=10)
-                    if vr.status_code == 200 and len(vr.content) > 20000:
-                        mime = "video/mp4" if vu.lower().endswith(".mp4") else "video/webm"
-                        return Response(vr.content, mimetype=mime, headers=cors())
-    except Exception:
-        pass
+    found = search_all_global_video_archives(en_q)
+    if found:
+        vb, mime = found
+        return Response(vb, mimetype=mime, headers=cors())
     return jsonify({"error": "no_video_found"}), 404, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
