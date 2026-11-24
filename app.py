@@ -321,7 +321,7 @@ def api_archive_video():
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "car racing").strip()
     en_q = llm_think([
-        {"role": "system", "content": "Extract ONLY 2 English keywords for searching a real action video (e.g. 'car race', 'football match', 'running athlete'). Output ONLY the 2 words."},
+        {"role": "system", "content": "Convert the request into a generic real-world action video search term (2 English words) available in public archives (e.g. 'ميسي' or 'رونالدو' -> 'football match', 'سباق سيارات' -> 'car race', 'قتال' -> 'martial arts'). Output ONLY the 2 English words."},
         {"role": "user", "content": raw_q}
     ], temp=0.1).replace('"', '').strip() or "car race"
 
