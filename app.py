@@ -360,142 +360,58 @@ def api_image():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
     raw_q = data.get("prompt", "cinematic masterpiece").strip()
-    cache_key = "ai_arch_" + raw_q
-    if cache_key in IMG_CACHE:
-        return Response(IMG_CACHE[cache_key], mimetype="image/jpeg", headers=cors())
 
-    clean_q = raw_q.replace("صمم", "").replace("صور", "").replace("صورة", "").replace("ارسم", "").strip()
+    # ترجمة دقيقة للموضوع المطلوب فقط (بدون أي بحث عشوائي في Openverse)
+    en_prompt = llm_think([
+        {"role": "system", "content": "Translate the user request into a vivid, accurate English visual prompt (max 22 words, photorealistic 8k, no text). Example: 'فيديو كرة القدم' -> 'professional soccer players kicking football on green stadium pitch under bright floodlights, dynamic action, photorealistic 8k'. Output ONLY the English prompt."},
+        {"role": "user", "content": raw_q}
+    ], temp=0.15).replace('"', '').strip() or (raw_q + ", photorealistic 8k")
 
-    # 1. جلب الصورة الحقيقية من الأرشيف العالمي ثم تحويلها بالذكاء الاصطناعي (Image-to-Image)
-    ref_bytes, en_title = fetch_global_archive_media(clean_q, want_video=False)
-    if not ref_bytes: ref_bytes = search_web_real_images(en_title)
-    if ref_bytes:
-        ai_transformed = transform_with_ai_img2img(ref_bytes, en_title)
-        IMG_CACHE[cache_key] = ai_transformed
-        return Response(ai_transformed, mimetype="image/jpeg", headers=cors())
-
-    # 2. التوليد المباشر بالذكاء الاصطناعي للمشاهد الخيالية
-    prompt = craft_visual_prompt(raw_q)
     cid, ctok, sl = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip(), chr(47)
     if cid and ctok:
         u = "https:" + sl + sl + "api." + "cloudflare.com" + sl + "client" + sl + "v4" + sl + "accounts" + sl + cid + sl + "ai" + sl + "run" + sl + "@cf" + sl + "black-forest-labs" + sl + "flux-1-schnell"
         try:
             r = requests.post(u, headers={"Authorization": f"Bearer {ctok}", "Content-Type": "application/json"},
-                json={"prompt": prompt}, timeout=12)
+                json={"prompt": en_prompt + ", no text"}, timeout=14)
             if r.status_code == 200:
                 ct = r.headers.get("Content-Type", "")
                 if "image" in ct and len(r.content) > 4000:
-                    IMG_CACHE[cache_key] = r.content
                     return Response(r.content, mimetype=ct, headers=cors())
                 b64 = (r.json().get("result") or {}).get("image")
                 if b64:
-                    img_data = base64.b64decode(b64)
-                    IMG_CACHE[cache_key] = img_data
-                    return Response(img_data, mimetype="image/jpeg", headers=cors())
+                    return Response(base64.b64decode(b64), mimetype="image/jpeg", headers=cors())
         except Exception:
             pass
     return jsonify({"error": "img_busy"}), 503, cors()
 
-
-def search_all_global_video_archives(en_q):
-    sl = chr(47)
-    def from_wikimedia():
-        try:
-            r = requests.get(f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php", params={
-                "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q} -sign -language",
-                "gsrnamespace": 6, "gsrlimit": 5, "prop": "imageinfo", "iiprop": "url|size", "format": "json"
-            }, headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=4)
-            if r.status_code == 200:
-                for p in ((r.json().get("query") or {}).get("pages") or {}).values():
-                    title_l = p.get("title", "").lower()
-                    if any(b in title_l for b in ["sign", "asl", "bsl", "lsf"]): continue
-                    if not any(kw in title_l for kw in en_q.lower().split() if len(kw) > 2): continue
-                    ii = next(iter(p.get("imageinfo") or []), {})
-                    vu, sz = ii.get("url"), ii.get("size", 99999999)
-                    if vu and sz < 13000000 and any(ext in vu.lower() for ext in [".webm", ".mp4"]):
-                        vr = requests.get(vu, headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=7)
-                        if vr.status_code == 200 and len(vr.content) > 20000:
-                            return vr.content, ("video/mp4" if vu.lower().endswith(".mp4") else "video/webm")
-        except Exception: pass
-        return None
-
-    def from_internet_archive():
-        try:
-            r = requests.get(f"https:{sl}{sl}archive.org{sl}advancedsearch.php", params={
-                "q": f"({en_q}) AND mediatype:movies AND format:MPEG4",
-                "fl[]": "identifier", "rows": 3, "output": "json"
-            }, timeout=4)
-            if r.status_code == 200:
-                for d in ((r.json().get("response") or {}).get("docs") or []):
-                    ident = d.get("identifier")
-                    if ident:
-                        meta = requests.get(f"https:{sl}{sl}archive.org{sl}metadata{sl}{ident}", timeout=4).json()
-                        for f in (meta.get("files") or []):
-                            fn = f.get("name", "")
-                            if fn.endswith(".mp4") and int(f.get("size", 99999999)) < 11000000:
-                                vr = requests.get(f"https:{sl}{sl}archive.org{sl}download{sl}{ident}{sl}{fn}", timeout=7)
-                                if vr.status_code == 200 and len(vr.content) > 20000:
-                                    return vr.content, "video/mp4"
-        except Exception: pass
-        return None
-
-    def from_nasa():
-        try:
-            r = requests.get(f"https:{sl}{sl}images-api.nasa.gov{sl}search", params={"q": en_q, "media_type": "video"}, timeout=4)
-            if r.status_code == 200:
-                items = ((r.json().get("collection") or {}).get("items") or [])[:2]
-                for it in items:
-                    href = it.get("href")
-                    if href:
-                        assets = requests.get(href, timeout=4).json()
-                        mp4 = next((u for u in assets if isinstance(u, str) and u.endswith("~small.mp4") or u.endswith("~mobile.mp4")), None)
-                        if mp4:
-                            vr = requests.get(mp4, timeout=7)
-                            if vr.status_code == 200 and len(vr.content) > 20000:
-                                return vr.content, "video/mp4"
-        except Exception: pass
-        return None
-
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        is_space = any(w in en_q.lower() for w in ["space", "planet", "rocket", "moon", "mars", "earth", "nasa", "galaxy", "star"])
-        futs = [ex.submit(from_wikimedia), ex.submit(from_internet_archive)] + ([ex.submit(from_nasa)] if is_space else [])
-        for fu in futs:
-            try:
-                res = fu.result(timeout=8)
-                if res: return res
-            except Exception: pass
-    return None
-
-def search_openverse_image(en_q):
-    sl = chr(47)
-    try:
-        r = requests.get(f"https:{sl}{sl}api.openverse.org{sl}v1{sl}images{sl}", params={"q": en_q, "page_size": 3},
-            headers={"User-Agent": "DarkHorizonFilms/30.0"}, timeout=4)
-        if r.status_code == 200:
-            for item in (r.json().get("results") or []):
-                iu = item.get("url")
-                if iu:
-                    ir = requests.get(iu, timeout=5)
-                    if ir.status_code == 200 and len(ir.content) > 12000:
-                        return ir.content
-    except Exception: pass
-    return None
-
-@app.route("/api/archive_video", methods=["POST", "OPTIONS"])
-def api_archive_video():
+@app.route("/api/video", methods=["POST", "OPTIONS"])
+def api_video():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    raw_q = data.get("prompt", "car racing").strip()
-    en_q = llm_think([
-        {"role": "system", "content": "Convert the request into a 2-word English visual search term for global archives (e.g. 'سباق سيارات' -> 'car racing', 'فضاء' -> 'space rocket', 'ميسي' -> 'soccer match', 'طبيعة' -> 'nature waterfall'). Output ONLY the 2 English words."},
-        {"role": "user", "content": raw_q}
-    ], temp=0.1).replace('"', '').strip() or "car racing"
+    raw_q = data.get("prompt", "football match").strip()
 
-    found = search_web_real_videos(en_q)
-    if found:
-        vb, mime = found
-        return Response(vb, mimetype=mime, headers=cors())
-    return jsonify({"error": "no_video_found"}), 404, cors()
+    en_prompt = llm_think([
+        {"role": "system", "content": "Write a concise English text-to-video motion prompt (max 20 words) describing real continuous movement. Example: 'فيديو كرة القدم' -> 'Professional football players running and kicking a soccer ball in a packed stadium, dynamic camera tracking, 4k realistic'. Output ONLY the English prompt."},
+        {"role": "user", "content": raw_q}
+    ], temp=0.2).replace('"', '').strip() or "soccer match action in stadium, realistic motion"
+
+    # 1. توليد فيديو ذكاء اصطناعي حقيقي (Text-to-Video MP4) عبر Hugging Face Inference API
+    hf = os.environ.get("HF_TOKEN", "").strip()
+    if hf:
+        try:
+            from huggingface_hub import InferenceClient
+            client = InferenceClient(token=hf)
+            for vid_mdl in ["Wan-AI/Wan2.1-T2V-14B", "Lightricks/LTX-Video", "ali-vilab/text-to-video-ms-1.7b"]:
+                try:
+                    vb = client.text_to_video(en_prompt, model=vid_mdl)
+                    if vb and len(vb) > 20000:
+                        return Response(vb, mimetype="video/mp4", headers=cors())
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    return jsonify({"error": "t2v_unavailable", "en_prompt": en_prompt}), 503, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
