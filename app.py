@@ -319,26 +319,28 @@ def api_image():
 def api_archive_video():
     if request.method == "OPTIONS": return ("", 204, cors())
     data = request.get_json(silent=True) or {}
-    raw_q = data.get("prompt", "soccer").strip()
-    clean_q = raw_q.replace("صمم", "").replace("فيديو", "").replace("انشئ", "").strip()
+    raw_q = data.get("prompt", "car racing").strip()
     en_q = llm_think([
-        {"role": "system", "content": "Translate to 2-3 English search keywords (e.g. 'football match', 'racing car'). Output ONLY keywords."},
-        {"role": "user", "content": clean_q}
-    ], temp=0.1).replace('"', '').strip() or "football"
+        {"role": "system", "content": "Extract ONLY the core visual subject in 2 English words (ignore duration/numbers like '10 seconds' or 'عشر ثوان'). Example: 'فيديو مدته عشر ثوان سباق سيارات' -> 'car racing'. Output ONLY the 2 English words."},
+        {"role": "user", "content": raw_q}
+    ], temp=0.1).replace('"', '').strip() or "car racing"
 
     sl = chr(47)
     try:
         api_u = f"https:{sl}{sl}commons.wikimedia.org{sl}w{sl}api.php"
         r = requests.get(api_u, params={
-            "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q}",
-            "gsrnamespace": 6, "gsrlimit": 2, "prop": "imageinfo", "iiprop": "url", "format": "json"
-        }, headers={"User-Agent": "DarkHorizonFilms/25.0"}, timeout=3)
+            "action": "query", "generator": "search", "gsrsearch": f"filetype:video {en_q} -sign -language",
+            "gsrnamespace": 6, "gsrlimit": 5, "prop": "imageinfo", "iiprop": "url", "format": "json"
+        }, headers={"User-Agent": "DarkHorizonFilms/26.0"}, timeout=4)
         if r.status_code == 200:
             for p in ((r.json().get("query") or {}).get("pages") or {}).values():
+                title = p.get("title", "").lower()
+                if any(bad in title for bad in ["sign", "asl", "bsl", "lsf", "pronunciation"]): continue
                 vu = next(iter(p.get("imageinfo") or []), {}).get("url")
-                if vu: return jsonify({"url": vu}), 200, cors()
+                if vu and any(ext in vu.lower() for ext in [".webm", ".mp4", ".ogv"]):
+                    return jsonify({"url": vu, "subject": en_q}), 200, cors()
     except Exception: pass
-    return jsonify({"error": "fast_fallback"}), 404, cors()
+    return jsonify({"url": "", "subject": en_q}), 200, cors()
 
 @app.route("/api/tts", methods=["POST", "OPTIONS"])
 def api_tts():
